@@ -1,0 +1,356 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Crow Media Player",
+        "description": "Adds the Crow Media Player card to your dashboards, and keeps everyone's pins, history and settings in Home Assistant. Choose Configure afterwards for speakers, keys and notifications."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Crow Media Player is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Crow Media Player",
+        "description": "Choices for everyone in the house.",
+        "data": {
+          "speakers": "Speakers",
+          "tmdb_key": "TheMovieDB key",
+          "discogs_token": "Discogs token",
+          "notify": "Send notifications to",
+          "notify_podcasts": "New podcast episodes",
+          "notify_releases": "New releases",
+          "mixes": "Made for You mixes",
+          "mix_kinds": "Mixes to make",
+          "mix_day": "Make them each",
+          "mix_agent": "AI for mixes",
+          "notify_mixes": "New mixes"
+        },
+        "data_description": {
+          "speakers": "The speakers whose plays count in Listening Recap, each with its own sensors. Leave empty for every media player. Speakers on any Crow Media Player card are always included.",
+          "tmdb_key": "Optional. A TheMovieDB API key or read access token, for film and TV details. Kept in Home Assistant, never sent to phones.",
+          "discogs_token": "Optional. A Discogs personal access token, for better album details.",
+          "notify": "Notification services, such as notify.mobile_app_iphone.",
+          "notify_podcasts": "A notification when a podcast someone has pinned has a new episode.",
+          "notify_releases": "A notification when an artist the house plays a lot has a new album or single.",
+          "mixes": "Playlists made from what the house listens to, in the card's Library under Made for You. They need Music Assistant.",
+          "mix_kinds": "On Repeat, Your Month in Music and Forgotten Favourites come from the listening history. The others are chosen by AI.",
+          "mix_day": "The day the mixes are made again. Your Month in Music is made on the 1st of each month.",
+          "mix_agent": "Optional. The conversation agent that chooses Discover Weekly and the mood mixes. Otherwise Home Assistant's AI Task is used.",
+          "notify_mixes": "A notification when new mixes are ready."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "listening_today": {
+        "name": "Listening time today"
+      },
+      "listening_week": {
+        "name": "Listening time this week"
+      },
+      "tracks_today": {
+        "name": "Tracks played today"
+      },
+      "top_artist_week": {
+        "name": "Top artist this week"
+      },
+      "top_track_week": {
+        "name": "Top track this week"
+      },
+      "last_played": {
+        "name": "Last played"
+      },
+      "listening_streak": {
+        "name": "Listening streak"
+      },
+      "new_podcast_episodes": {
+        "name": "New podcast episodes"
+      },
+      "new_releases": {
+        "name": "New releases"
+      },
+      "sleep_timer": {
+        "name": "Sleep timer"
+      },
+      "next_alarm": {
+        "name": "Next alarm"
+      },
+      "radio_station": {
+        "name": "Radio station"
+      },
+      "queue_time_left": {
+        "name": "Queue time left"
+      },
+      "now_watching": {
+        "name": "Now watching"
+      },
+      "audiobook": {
+        "name": "Audiobook progress"
+      },
+      "rooms_playing": {
+        "name": "Rooms playing"
+      },
+      "last_music": {
+        "name": "Last music"
+      },
+      "up_next": {
+        "name": "Up next"
+      },
+      "listening_by_room": {
+        "name": "Listening by room"
+      },
+      "song_ends_at": {
+        "name": "Song ends at"
+      },
+      "audio_quality": {
+        "name": "Audio quality"
+      }
+    },
+    "binary_sensor": {
+      "music_playing": {
+        "name": "Music playing"
+      },
+      "radio_mode": {
+        "name": "Radio Mode"
+      },
+      "resume_available": {
+        "name": "Something to resume"
+      }
+    }
+  },
+  "services": {
+    "start_sleep_timer": {
+      "name": "Start sleep timer",
+      "description": "Pause a speaker after some minutes, or at the end of the song, turning the volume down gently first and putting it back afterwards.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "The speaker to pause."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "How long until it pauses."
+        },
+        "end_of_track": {
+          "name": "End of this song",
+          "description": "Pause when the song playing now ends, instead."
+        },
+        "volume_entity": {
+          "name": "Volume speaker",
+          "description": "Turn this speaker's volume down instead (for a group)."
+        }
+      }
+    },
+    "cancel_sleep_timer": {
+      "name": "Cancel sleep timer",
+      "description": "Turn off a speaker's sleep timer and put its volume back.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "The speaker."
+        }
+      }
+    },
+    "set_alarm": {
+      "name": "Set alarm",
+      "description": "Wake up to music: at the time, the speaker starts quietly and gets louder over a minute.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "The speaker to play on."
+        },
+        "time": {
+          "name": "Time",
+          "description": "When, like 07:00."
+        },
+        "days": {
+          "name": "Days",
+          "description": "Which days. Leave empty for once."
+        },
+        "media_content_id": {
+          "name": "What to play",
+          "description": "A playlist, album, station or track (Music Assistant URI or a media ID). Leave empty to carry on with what was last playing."
+        },
+        "media_content_type": {
+          "name": "Type",
+          "description": "playlist, album, track, radio…"
+        },
+        "volume": {
+          "name": "Volume",
+          "description": "How loud it gets."
+        },
+        "title": {
+          "name": "Name",
+          "description": "A name for the alarm."
+        }
+      }
+    },
+    "delete_alarm": {
+      "name": "Delete alarm",
+      "description": "Remove an alarm, by its ID or by speaker and time.",
+      "fields": {
+        "alarm_id": {
+          "name": "Alarm ID",
+          "description": "The alarm's ID (Next alarm's alarm_id)."
+        },
+        "entity_id": {
+          "name": "Speaker",
+          "description": "Every alarm on this speaker (or just the one at the time below)."
+        },
+        "time": {
+          "name": "Time",
+          "description": "The alarm's time."
+        }
+      }
+    },
+    "play_station": {
+      "name": "Play a radio station",
+      "description": "Play a station by name: one someone has starred in the card, or the best match from Radio Browser.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "Where to play it."
+        },
+        "name": {
+          "name": "Station",
+          "description": "The station's name."
+        }
+      }
+    },
+    "play_pinned": {
+      "name": "Play something pinned",
+      "description": "Play a playlist, album, artist, song, station, podcast or audiobook pinned in the card, by its name.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "Where to play it."
+        },
+        "name": {
+          "name": "Name",
+          "description": "The pinned item's name."
+        },
+        "kind": {
+          "name": "Kind",
+          "description": "Only look at this kind of pin."
+        },
+        "mine": {
+          "name": "Only my pins",
+          "description": "Only the pins of the person running the action."
+        }
+      }
+    },
+    "play_mood": {
+      "name": "Play a mood",
+      "description": "The AI chooses songs for a mood (\"a lazy Sunday morning\", \"dinner party\") and Music Assistant plays them.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "A Music Assistant speaker."
+        },
+        "mood": {
+          "name": "Mood",
+          "description": "Describe the mood."
+        },
+        "count": {
+          "name": "Songs",
+          "description": "How many songs."
+        },
+        "agent_id": {
+          "name": "Conversation agent",
+          "description": "Optional. Otherwise Home Assistant's AI Task is used."
+        }
+      }
+    },
+    "forget_history": {
+      "name": "Forget listening history",
+      "description": "Delete every play Home Assistant has recorded for Listening Recap."
+    },
+    "check_new": {
+      "name": "Check for new episodes and releases",
+      "description": "Check now, instead of waiting for the next twice-daily check."
+    },
+    "play_mix": {
+      "name": "Play a mix",
+      "description": "Play one of the Made for You mixes, by its name, on a Music Assistant speaker.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "A Music Assistant speaker."
+        },
+        "name": {
+          "name": "Mix",
+          "description": "The mix's name, like On Repeat or Discover Weekly."
+        },
+        "shuffle": {
+          "name": "Shuffle",
+          "description": "Play the songs in a random order."
+        },
+        "enqueue": {
+          "name": "Queue",
+          "description": "Play now, play next, or add to the end of the queue."
+        }
+      }
+    },
+    "make_mixes": {
+      "name": "Make mixes now",
+      "description": "Make the Made for You mixes again now, instead of waiting for the chosen day.",
+      "fields": {
+        "mixes": {
+          "name": "Mixes",
+          "description": "Only these mixes. Leave empty for all the ones chosen in Configure."
+        }
+      }
+    },
+    "pause_everywhere": {
+      "name": "Pause everywhere",
+      "description": "Pause every speaker and TV that's playing.",
+      "fields": {
+        "except": {
+          "name": "Except",
+          "description": "Keep these playing."
+        }
+      }
+    },
+    "resume": {
+      "name": "Resume",
+      "description": "Carry on with what a speaker was playing when it stopped (paused, turned off, or lost in a power cut), from where it stopped, at the same volume.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "The speaker."
+        }
+      }
+    }
+  },
+  "selector": {
+    "mix_kinds": {
+      "options": {
+        "repeat": "On Repeat",
+        "month": "Your Month in Music",
+        "forgotten": "Forgotten Favourites",
+        "discover": "Discover Weekly",
+        "sunday": "Sunday Morning",
+        "focus": "Focus",
+        "dinner": "Dinner Party",
+        "workout": "Workout",
+        "evening": "Chill Evening",
+        "drive": "Road Trip"
+      }
+    },
+    "mix_day": {
+      "options": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
+    }
+  }
+}

@@ -1,0 +1,204 @@
+start_sleep_timer:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    minutes:
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 600
+          unit_of_measurement: min
+    end_of_track:
+      default: false
+      selector:
+        boolean:
+    volume_entity:
+      selector:
+        entity:
+          domain: media_player
+cancel_sleep_timer:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+set_alarm:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    time:
+      required: true
+      example: "07:00"
+      selector:
+        time:
+    days:
+      example: ["mon", "tue", "wed", "thu", "fri"]
+      selector:
+        select:
+          multiple: true
+          options:
+            - mon
+            - tue
+            - wed
+            - thu
+            - fri
+            - sat
+            - sun
+    media_content_id:
+      example: "library://playlist/12"
+      selector:
+        text:
+    media_content_type:
+      example: playlist
+      selector:
+        text:
+    volume:
+      example: 0.35
+      selector:
+        number:
+          min: 0.05
+          max: 1
+          step: 0.05
+    title:
+      example: "Morning playlist"
+      selector:
+        text:
+delete_alarm:
+  fields:
+    alarm_id:
+      selector:
+        text:
+    entity_id:
+      selector:
+        entity:
+          domain: media_player
+    time:
+      selector:
+        time:
+play_station:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    name:
+      required: true
+      example: "BBC Radio 6 Music"
+      selector:
+        text:
+play_pinned:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+    name:
+      required: true
+      example: "Sunday Morning"
+      selector:
+        text:
+    kind:
+      selector:
+        select:
+          options:
+            - track
+            - artist
+            - album
+            - playlist
+            - stations
+            - podcasts
+            - audiobooks
+    mine:
+      default: false
+      selector:
+        boolean:
+play_mood:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+    mood:
+      required: true
+      example: "a lazy Sunday morning"
+      selector:
+        text:
+    count:
+      default: 15
+      selector:
+        number:
+          min: 3
+          max: 40
+    agent_id:
+      selector:
+        conversation_agent:
+forget_history:
+check_new:
+play_mix:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          integration: music_assistant
+    name:
+      required: true
+      example: "Discover Weekly"
+      selector:
+        text:
+    shuffle:
+      default: false
+      selector:
+        boolean:
+    enqueue:
+      default: replace
+      selector:
+        select:
+          options:
+            - replace
+            - next
+            - add
+make_mixes:
+  fields:
+    mixes:
+      selector:
+        select:
+          multiple: true
+          options:
+            - repeat
+            - month
+            - forgotten
+            - discover
+            - sunday
+            - focus
+            - dinner
+            - workout
+            - evening
+            - drive
+pause_everywhere:
+  fields:
+    except:
+      selector:
+        entity:
+          domain: media_player
+          multiple: true
+resume:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: media_player

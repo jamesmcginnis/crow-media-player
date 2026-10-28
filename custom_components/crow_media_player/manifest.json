@@ -1,0 +1,27 @@
+{
+  "domain": "crow_media_player",
+  "name": "Crow Media Player",
+  "after_dependencies": [
+    "conversation",
+    "ai_task",
+    "lovelace",
+    "media_player",
+    "mobile_app",
+    "notify"
+  ],
+  "codeowners": [
+    "@jamesmcginnis"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/jamesmcginnis/crow-media-player",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/jamesmcginnis/crow-media-player/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.0.1"
+}
