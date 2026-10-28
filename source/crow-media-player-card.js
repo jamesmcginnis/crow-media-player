@@ -1071,7 +1071,7 @@ function crowMediaAutoStart(cfg) {
 // checking it answers in time AND still answers in the shape the card reads. Run from the browser,
 // the same way the card reaches each service, so it shows what works on this device.
 // ══════════════════════════════════════════════════════════════════════
-const CROW_MEDIA_VERSION = '0.0.1';
+const CROW_MEDIA_VERSION = '0.0.2';
 console.info('%c CROW MEDIA PLAYER %c v' + CROW_MEDIA_VERSION + ' ', 'background:#007AFF;color:#fff;font-weight:700;border-radius:3px 0 0 3px;padding:2px 4px', 'background:#333;color:#fff;border-radius:0 3px 3px 0;padding:2px 4px');
 
 // tidy away a setting earlier versions saved on this device
