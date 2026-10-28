@@ -1,0 +1,7 @@
+{
+  "name": "crow-media-player-build",
+  "private": true,
+  "description": "Builds the card's files for release: the readable files here, minified into custom_components/crow_media_player/www",
+  "scripts": { "build": "node build.js" },
+  "devDependencies": { "terser": "5.31.6" }
+}
