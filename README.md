@@ -4,10 +4,8 @@ Crow Media Player is a Home Assistant integration and Lovelace card for your spe
 
 > **One download installs both.** The card is bundled inside the integration and is loaded into your dashboards automatically, so there's no separate resource to add.
 
-[![GitHub release](https://img.shields.io/github/v/release/jamesmcginnis/crow-media-player?include_prereleases&label=release)](https://github.com/jamesmcginnis/crow-media-player/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange)](https://hacs.xyz/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8+-blue)](https://www.home-assistant.io/)
-[![License](https://img.shields.io/github/license/jamesmcginnis/crow-media-player)](LICENSE.md)
 
 **Step 1 — Add the repository to HACS:**
 
