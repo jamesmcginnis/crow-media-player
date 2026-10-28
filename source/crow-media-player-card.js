@@ -2422,6 +2422,10 @@ ${crowMediaSkinSquareCss(':host([data-sk-square])')}
 `;
 
 class CrowMediaPlayerCard extends HTMLElement {
+  // Toasts that report something going wrong — _showToast keeps these up longer so they can be read.
+  static get TOAST_ERROR_RE() {
+    return /^⚠|could ?n['’]?t|could not|cannot|can['’]t|isn['’]t available|not available|not found|failed|went wrong|required|unavailable|didn['’]t|no ma speaker/i;
+  }
   // Prepended to every AI prompt: titles, descriptions and Discogs / TVmaze /
   // Wikipedia text quoted in prompts come from outside the card, so the AI is
   // told to treat them strictly as data.
@@ -24260,6 +24264,8 @@ class CrowMediaPlayerCard extends HTMLElement {
     // follow-up message replace it.
     if (this._aiErrorToastAt && Date.now() - this._aiErrorToastAt < 2500 && !String(message).startsWith('\u26a0\ufe0f ')) return;
     this._lastToast = { msg: message, at: Date.now() };
+    // Errors stay up long enough to read (at least 6.5s); other messages keep their own timing.
+    if (CrowMediaPlayerCard.TOAST_ERROR_RE.test(String(message))) duration = Math.max(duration, 6500);
     if (this._toastTimer) clearTimeout(this._toastTimer);
     toast.classList.remove('loading');
     textEl.textContent = message;
