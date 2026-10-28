@@ -1,5 +1,3 @@
-<p align="center"><img src="https://raw.githubusercontent.com/jamesmcginnis/crow-media-player/main/custom_components/crow_media_player/brand/icon.png" width="96" alt="Crow Media Player"></p>
-
 # Crow Media Player
 
 Crow Media Player is a Home Assistant integration and Lovelace card for your speakers and TVs. The card is an iPhone-style media player with deep Music Assistant support, synced lyrics, AI track and film information, a library with podcasts, radio and audiobooks, Listening Recaps, PDF exports, a screensaver, a visualiser and an Apple TV remote. The integration runs alongside it on your Home Assistant server: it keeps everyone's pins, history and settings in Home Assistant, records what the house listens to even when no dashboard is open, runs the sleep timer and wake-up alarms, fetches outside services for the card and adds sensors and actions for your automations.
