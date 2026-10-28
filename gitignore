@@ -1,0 +1,18 @@
+# The build tool's downloads (made by `npm install` in the source folder)
+node_modules/
+
+# Optional: uncomment to keep the build tool's lock file out of the repo
+# package-lock.json
+
+# Python's compiled files (made when Home Assistant runs the integration)
+__pycache__/
+*.pyc
+
+# System and editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.log
