@@ -193,7 +193,7 @@ The card is split into a main file and parts that load when they're first used (
 
 ### AI Features Setup (optional)
 
-AI features are off by default. Turn on **AI Features** in the card editor and choose a conversation agent (for example OpenAI, Google Gemini, Anthropic or Ollama) that you've already set up in Home Assistant. Play a Mood uses Home Assistant's AI Task when one is set up.
+AI features are off by default. Turn on **AI Features** in the card editor and choose a conversation agent that you've already set up in Home Assistant. Play a Mood uses Home Assistant's AI Task when one is set up.
 
 ---
 
@@ -203,10 +203,6 @@ AI features are off by default. Turn on **AI Features** in the card editor and c
 - Music Assistant is optional, but needed for the library, queue, Made for You mixes and Play a Mood
 - Queue Actions (mass_queue, from HACS) is optional; with it the card uses Music Assistant's own queue, Radio Mode, playlists and resume
 - The Home Assistant Companion app for notifications (optional)
-
-## Source
-
-The files Home Assistant serves (in custom_components/crow_media_player/www) are built for speed: minified, with compressed copies that Home Assistant sends to browsers that accept them. The readable files are in the source folder. To change the card, edit them there and run `npm install` once, then `npm run build`, in that folder.
 
 ## Support
 
