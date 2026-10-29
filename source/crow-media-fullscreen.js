@@ -65,6 +65,8 @@ const CROW_MEDIA_FS_CSS = `
 #cardOuter[data-crow-fs][data-crow-fs-rem] .r-apps-dropdown.r-apps-grid { background: transparent !important; box-shadow: none !important;
   backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border: 0 !important; }
 #cardOuter[data-crow-fs][data-crow-fs-rem] #remoteOverlay:has(> .r-apps-grid:not(.hidden)) > :not(.r-apps-grid) { visibility: hidden !important; }
+/* no "Apps" heading over the grid in full screen: just the ✕, on the right */
+#cardOuter[data-crow-fs][data-crow-fs-rem] .r-ag-title { display: none !important; }
 #cardOuter[data-crow-fs][data-crow-fs-rem] .r-ag-close { background: rgba(255,255,255,0.1) !important; border-color: rgba(255,255,255,0.14) !important; }
 #cardOuter[data-crow-fs][data-crow-fs-rem] .r-ag-search-input { background: rgba(255,255,255,0.08) !important; border-color: rgba(255,255,255,0.12) !important; }
 #cardOuter[data-crow-fs][data-crow-fs-rem] .clickpad { background: rgba(255,255,255,0.08) !important; border: 1px solid rgba(255,255,255,0.12) !important;
@@ -87,8 +89,13 @@ const CROW_MEDIA_FS_CSS = `
 #cardOuter[data-crow-fs][data-crow-fs-rem] > #artClick, #cardOuter[data-crow-fs][data-crow-fs-lyr] > #artClick { border: 0 !important; outline: 0 !important; }
 #cardOuter[data-crow-fs][data-crow-fs-rem] > #artClick > :not(#remoteOverlay) { display: none !important; }
 #cardOuter[data-crow-fs][data-crow-fs-rem] #remoteOverlay { border-radius: 0 !important; }
+/* beside the player (a tablet or a phone on its side): the remote runs from the top of the artwork to the bottom of
+   the player (see _fsRemPlace), and the touchpad grows to fill it, so its top lines up with the artwork's. The room
+   kept above the touchpad for the remote's ✕ isn't needed here (full screen hides the ✕), so it goes too (the
+   card sets that room on the panel itself, hence !important) */
 #cardOuter[data-crow-fs][data-crow-fs-rem="col3"] #remoteOverlay .remote-panel,
-#cardOuter[data-crow-fs][data-crow-fs-rem="side"] #remoteOverlay .remote-panel { width: min(100%, 460px); height: min(100%, 680px); margin: auto; padding: 0; }
+#cardOuter[data-crow-fs][data-crow-fs-rem="side"] #remoteOverlay .remote-panel { width: 100%; height: 100%; margin: 0 auto; padding: 0 !important; }
+#cardOuter[data-crow-fs][data-crow-fs-rem="col3"] #remoteOverlay .remote-panel { width: min(100%, 460px); }
 /* the third panel: the space the remote sits in, after the info; the artwork gives up a little room for it */
 .cfs-rpanel { display: none; flex: 0 0 auto; align-self: stretch; width: clamp(300px, 30vw, 440px); }
 #cardOuter[data-crow-fs-rem="col3"] .cfs-rpanel { display: block; }
@@ -124,6 +131,30 @@ const CROW_MEDIA_FS_CSS = `
 .cfs-bgimg { position: absolute; left: -12%; top: -12%; width: 124%; height: 124%; object-fit: cover; filter: blur(70px) saturate(1.5) brightness(0.72); animation: cfs-drift 40s ease-in-out infinite alternate; }
 @keyframes cfs-drift { from { transform: scale(1.1) translate(-2%, -1%); } to { transform: scale(1.2) translate(2%, 1.5%); } }
 @media (prefers-reduced-motion: reduce) { .cfs-bgimg { animation: none; } }
+/* Animated Background (editor → Appearance, off by default): while something plays, several big, blurred copies of
+   the artwork turn and drift slowly on their own paths, so its colours swirl behind everything, like the Apple TV's
+   music background. It fades in over the plain background and back out when playing stops (it keeps moving while it
+   fades, data-flow-run). Composited transforms only, so it's light on tablets and kiosks. Never for an app's icon. */
+.cfs-flow { position: absolute; inset: 0; opacity: 0; transition: opacity 1.6s ease; pointer-events: none; }
+#crowFs[data-flow] .cfs-flow { opacity: 1; }
+#crowFs[data-flow].cfs-flow-swap .cfs-flow { opacity: 0; transition: opacity 0.7s ease; }
+.cfs-fl { position: absolute; width: 95vmax; height: 95vmax; object-fit: cover; border-radius: 50%; will-change: transform;
+  filter: blur(64px) saturate(1.7) brightness(0.78); }
+.cfs-fl[hidden] { display: none; }
+.cfs-fl1 { left: -30vmax; top: -38vmax; animation: cfs-fl-a 42s linear infinite; }
+.cfs-fl2 { right: -38vmax; top: -22vmax; animation: cfs-fl-b 51s linear infinite; }
+.cfs-fl3 { left: -20vmax; bottom: -42vmax; animation: cfs-fl-c 58s linear infinite; }
+.cfs-fl4 { right: -28vmax; bottom: -36vmax; animation: cfs-fl-d 67s linear infinite; opacity: 0.85; }
+/* at rest unless it's showing (the layers' own animation shorthand would otherwise set them running) */
+#crowFs .cfs-fl { animation-play-state: paused; }
+#crowFs[data-flow-run] .cfs-fl { animation-play-state: running; }
+/* behind full screen's lyrics screen nobody sees it, so it rests */
+#cardOuter[data-crow-fs-lyr] #crowFs .cfs-fl { animation-play-state: paused; }
+@keyframes cfs-fl-a { 0% { transform: rotate(0deg) translate(0, 0) scale(1); } 50% { transform: rotate(180deg) translate(9vmax, 6vmax) scale(1.18); } 100% { transform: rotate(360deg) translate(0, 0) scale(1); } }
+@keyframes cfs-fl-b { 0% { transform: rotate(0deg) translate(0, 0) scale(1.1); } 50% { transform: rotate(-180deg) translate(-10vmax, 8vmax) scale(0.95); } 100% { transform: rotate(-360deg) translate(0, 0) scale(1.1); } }
+@keyframes cfs-fl-c { 0% { transform: rotate(0deg) translate(0, 0) scale(0.95); } 50% { transform: rotate(180deg) translate(8vmax, -9vmax) scale(1.15); } 100% { transform: rotate(360deg) translate(0, 0) scale(0.95); } }
+@keyframes cfs-fl-d { 0% { transform: rotate(0deg) translate(0, 0) scale(1.05); } 50% { transform: rotate(-180deg) translate(-8vmax, -7vmax) scale(1.2); } 100% { transform: rotate(-360deg) translate(0, 0) scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .cfs-flow { display: none; } }
 .cfs-bgshade { position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 30%, rgba(0,0,0,0.05), rgba(0,0,0,0.45)), rgba(10,8,18,0.25); }
 /* just the quick menu and exit buttons, top right */
 .cfs-top { position: absolute; top: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 0;
@@ -428,7 +459,7 @@ Object.assign(K.Card.prototype, {
     // a round arrow with "15" in it (turned the other way for forward)
     const skip15 = fwd => `<svg viewBox="0 0 24 24" aria-hidden="true"><path${fwd ? ' transform="matrix(-1 0 0 1 24 0)"' : ''} d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="15.4" text-anchor="middle">15</text></svg>`;
     v.innerHTML = `
-      <div class="cfs-bg" aria-hidden="true"><img class="cfs-bgimg" alt=""><div class="cfs-bgshade"></div></div>
+      <div class="cfs-bg" aria-hidden="true"><img class="cfs-bgimg" alt=""><div class="cfs-flow">${[1, 2, 3, 4].map(n => '<img class="cfs-fl cfs-fl' + n + '" alt="" hidden>').join('')}</div><div class="cfs-bgshade"></div></div>
       <div class="cfs-top">
         <button type="button" class="cfs-sleep" data-a="sleep" aria-label="Sleep timer" hidden>${svg(I.moon)}<span></span></button>
         <div class="cfs-cap">
@@ -680,7 +711,16 @@ Object.assign(K.Card.prototype, {
     const c = card.getBoundingClientRect(), s = spot.getBoundingClientRect();
     if (!s.width || !s.height) return;
     const px = n => Math.round(n) + 'px';
-    const want = [px(s.left - c.left), px(s.top - c.top), px(s.width), px(s.height)];
+    let top = s.top, height = s.height;
+    // beside the player (the third panel, or the info's place on a phone on its side): from the top of the artwork
+    // to the bottom of the player, so the touchpad starts level with the artwork and the buttons end level with the
+    // player's last row
+    if (mode === 'col3' || mode === 'side') {
+      const art = this.shadowRoot?.querySelector('#crowFs .cfs-art')?.getBoundingClientRect();
+      const player = this.shadowRoot?.querySelector('#crowFs .cfs-player')?.getBoundingClientRect();
+      if (art?.height && player?.height && player.bottom - art.top > 240) { top = art.top; height = player.bottom - art.top; }
+    }
+    const want = [px(s.left - c.left), px(top - c.top), px(s.width), px(height)];
     ['--cfs-rx', '--cfs-ry', '--cfs-rw', '--cfs-rh'].forEach((k, i) => { if (card.style.getPropertyValue(k) !== want[i]) card.style.setProperty(k, want[i]); });
   },
   // watches the remote: shown → it takes its place; hidden → full screen goes back to how it was. It also follows
@@ -697,7 +737,7 @@ Object.assign(K.Card.prototype, {
     }
     if (typeof ResizeObserver === 'function') {
       this._fsRemSize = new ResizeObserver(() => { if (this._fs) this._fsRemPlace(); });
-      this.shadowRoot?.querySelectorAll('#crowFs .cfs-main, #crowFs .cfs-art, #crowFs .cfs-side, #crowFs .cfs-rpanel').forEach(el => this._fsRemSize.observe(el));
+      this.shadowRoot?.querySelectorAll('#crowFs .cfs-main, #crowFs .cfs-player, #crowFs .cfs-art, #crowFs .cfs-side, #crowFs .cfs-rpanel').forEach(el => this._fsRemSize.observe(el));
     }
     const ov = this.shadowRoot?.getElementById('remoteOverlay');
     const card = this.shadowRoot?.getElementById('cardOuter');
@@ -834,6 +874,47 @@ Object.assign(K.Card.prototype, {
       }
     }
   },
+  // Animated Background: moves while something it's on for is playing (Animate For: everything, music only, or
+  // films and TV only), with real artwork. An app's icon (Netflix…) keeps the plain background. A new picture fades
+  // in once the old one has faded out.
+  _fsFlow(v, playing, art) {
+    const cfg = this._config || {};
+    const want = (() => {
+      if (cfg.fullscreen_animated_bg !== true || !playing || !art || v._appIcon) return false;
+      const forWhat = ['music', 'video'].includes(cfg.fullscreen_animated_bg_for) ? cfg.fullscreen_animated_bg_for : 'all';
+      if (forWhat === 'all') return true;
+      let video = false;
+      try { video = this._fsIsVideo(); } catch (_) { video = false; }
+      return forWhat === 'video' ? video : !video;
+    })();
+    const layers = [...v.querySelectorAll('.cfs-fl')];
+    const setArt = (u) => layers.forEach(l => { if (u) { if (l.getAttribute('src') !== u) l.src = u; l.hidden = false; } else { l.removeAttribute('src'); l.hidden = true; } });
+    if (want) {
+      clearTimeout(this._fsFlowStop);
+      if (v._flowArt !== art) {
+        const first = !v._flowArt || !v.hasAttribute('data-flow');
+        v._flowArt = art;
+        clearTimeout(this._fsFlowSwap);
+        if (first) setArt(art);
+        else {
+          v.classList.add('cfs-flow-swap');
+          this._fsFlowSwap = setTimeout(() => { if (v._flowArt === art) setArt(art); v.classList.remove('cfs-flow-swap'); }, 700);
+        }
+      }
+      v.setAttribute('data-flow-run', '');
+      v.setAttribute('data-flow', '');
+    } else if (v.hasAttribute('data-flow')) {
+      // fades back to the plain background, still moving while it fades, then rests
+      v.removeAttribute('data-flow');
+      v.classList.remove('cfs-flow-swap');
+      this._fsFlowStop = setTimeout(() => {
+        if (v.hasAttribute('data-flow')) return;
+        v.removeAttribute('data-flow-run');
+        // nothing to show any more: the layers let go of the picture once they've faded
+        if (!v._art) { v._flowArt = null; setArt(''); }
+      }, 1800);
+    }
+  },
   _fsUpdate(force = false) {
     const v = this.shadowRoot?.getElementById('crowFs');
     if (!v || !this._fs) return;
@@ -874,6 +955,7 @@ Object.assign(K.Card.prototype, {
       if (art) { ai.src = art; bi.src = art; ai.hidden = false; bi.hidden = false; }
       else { ai.removeAttribute('src'); bi.removeAttribute('src'); ai.hidden = true; bi.hidden = true; }
     }
+    this._fsFlow(v, playing, art);
     const room = this._entityDisplayName(eid);
     const set = (sel, t) => { const el = v.querySelector(sel); if (el && el.textContent !== t) el.textContent = t; };
     // an app with nothing of its own to say (Netflix…): the app's name, with the Apple TV under it, as the main player shows it

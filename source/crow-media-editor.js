@@ -2300,6 +2300,22 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
                   </div>
                   <label class="toggle-switch" style="flex-shrink:0;margin-top:2px;"><input type="checkbox" id="start_full"><span class="toggle-track"></span></label>
                 </div>
+<div class="toggle-item" id="fsAnimBgRow" style="align-items:flex-start;gap:12px;padding:10px 0 10px 16px;">
+                  <div style="flex:1;">
+                    <div class="toggle-label">Animated Background</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;line-height:1.4;">In full screen, the colours of the artwork swirl slowly behind everything while something is playing, like the Apple TV's music background, and settle when it pauses or stops. Apps that don't share any artwork keep the plain background.</div>
+                  </div>
+                  <label class="toggle-switch" style="flex-shrink:0;margin-top:2px;"><input type="checkbox" id="fullscreen_animated_bg"><span class="toggle-track"></span></label>
+                </div>
+<div id="fsAnimBgForRow" style="display:none;padding:4px 0 12px 16px;">
+                  <div style="font-size:13px;font-weight:500;margin-bottom:6px;color:var(--primary-text-color, #111);">Animate For</div>
+                  <div style="font-size:11px;color:#888;margin-bottom:8px;line-height:1.4;">What the animated background moves for. Music includes radio, podcasts, audiobooks and video apps such as YouTube; Films &amp; TV is anything the card shows as a film or TV show. Anything else keeps the plain background.</div>
+                  <select id="fullscreen_animated_bg_for" style="width:100%;background:var(--card-background-color,rgba(255,255,255,0.07));border:1px solid var(--divider-color,rgba(128,128,128,0.2));border-radius:10px;color:var(--primary-text-color,#fff);font-size:13px;font-family:inherit;padding:10px 12px;outline:none;-webkit-appearance:none;cursor:pointer;">
+                    <option value="all">Music, Films &amp; TV</option>
+                    <option value="music">Music only</option>
+                    <option value="video">Films &amp; TV only</option>
+                  </select>
+                </div>
             </div>
           </div>
         </div>
@@ -3192,13 +3208,24 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
     // Full Screen switches
     {
       const fb = root.getElementById('fullscreen_button');
-      [['fullscreen_button', true], ['start_full', false]].forEach(([k, def]) => {
+      const ab = root.getElementById('fullscreen_animated_bg');
+      [['fullscreen_button', true], ['start_full', false], ['fullscreen_animated_bg', false]].forEach(([k, def]) => {
         const el = root.getElementById(k);
         if (!el) return;
         el.checked = def ? this._config?.[k] !== false : this._config?.[k] === true;
         el.onchange = (e) => { this._updateConfig(k, e.target.checked); dim(); };
       });
-      const dim = () => ['startFullRow'].forEach(id => { const row = root.getElementById(id); if (row) { row.style.opacity = fb?.checked ? '' : '0.4'; row.style.pointerEvents = fb?.checked ? '' : 'none'; } });
+      // Animate For: what the animated background moves for (shown while it's on)
+      const abFor = root.getElementById('fullscreen_animated_bg_for');
+      if (abFor) {
+        abFor.value = ['all', 'music', 'video'].includes(this._config?.fullscreen_animated_bg_for) ? this._config.fullscreen_animated_bg_for : 'all';
+        abFor.onchange = (e) => this._updateConfig('fullscreen_animated_bg_for', e.target.value);
+      }
+      const dim = () => {
+        ['startFullRow', 'fsAnimBgRow', 'fsAnimBgForRow'].forEach(id => { const row = root.getElementById(id); if (row) { row.style.opacity = fb?.checked ? '' : '0.4'; row.style.pointerEvents = fb?.checked ? '' : 'none'; } });
+        const forRow = root.getElementById('fsAnimBgForRow');
+        if (forRow) forRow.style.display = ab?.checked ? 'block' : 'none';
+      };
       dim();
     }
     // the TV Guide switch shows under Movie & TV Charts, only while that's on
@@ -4544,11 +4571,12 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
       });
       g('reportOpenBtn')?.addEventListener('click', () => {
         // opened straight from the tap (so it isn't blocked as a pop-up), with whatever results there are so far
+        // opens the issues page itself; the report is copied, ready to paste into a new issue
         const details = reportText();
-        const { url, cut } = crowMediaHealth.issueUrl(details);
-        window.open(url, '_blank', 'noopener');
-        if (cut) copy(crowMediaHealth.issueBody(details));
-        status(cut ? 'The full report was too long for the link, so it\u2019s been copied - paste it into the issue.' : 'Opened GitHub. Fill in the top part and press Submit.');
+        window.open(CROW_MEDIA_ISSUES_URL, '_blank', 'noopener');
+        copy(crowMediaHealth.issueBody(details)).then(ok => status(ok
+          ? 'Opened GitHub\u2019s issues page and copied your report. Tap New issue and paste it in.'
+          : 'Opened GitHub\u2019s issues page. Use Copy Report, then tap New issue and paste it in.'));
       });
       g('reportCopyBtn')?.addEventListener('click', async () => {
         const ok = await copy(crowMediaHealth.issueBody(reportText()));

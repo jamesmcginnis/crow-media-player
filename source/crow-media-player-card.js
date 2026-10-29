@@ -1071,7 +1071,7 @@ function crowMediaAutoStart(cfg) {
 // checking it answers in time AND still answers in the shape the card reads. Run from the browser,
 // the same way the card reaches each service, so it shows what works on this device.
 // ══════════════════════════════════════════════════════════════════════
-const CROW_MEDIA_VERSION = '0.0.2';
+const CROW_MEDIA_VERSION = '0.0.3';
 console.info('%c CROW MEDIA PLAYER %c v' + CROW_MEDIA_VERSION + ' ', 'background:#007AFF;color:#fff;font-weight:700;border-radius:3px 0 0 3px;padding:2px 4px', 'background:#333;color:#fff;border-radius:0 3px 3px 0;padding:2px 4px');
 
 // tidy away a setting earlier versions saved on this device
@@ -8940,10 +8940,8 @@ class CrowMediaPlayerCard extends HTMLElement {
         // Queue — MA only; greyed out while queue is being populated
         if (isMa) items.push({ id: 'qm_queue', label: 'Queue', icon: SVG.queue, active: false });
 
-        // AI Search — MA only
-        // Search — the library's normal Music Assistant search, keyboard ready
+        // Search — AI Search when AI features are on, otherwise the library's normal search
         if (isMa || hasMA) items.push({ id: 'qm_search', label: 'Search', icon: '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>', active: false });
-        if (this._aiFeatureOn('discover') && (isMa || hasMA)) items.push({ id: 'qm_ai_search', label: 'AI Search', icon: '<svg viewBox="0 0 24 24"><path d="M17 22V20H20V17H22V20.5C22 20.89 21.84 21.24 21.54 21.54C21.24 21.84 20.89 22 20.5 22H17M7 22H3.5C3.11 22 2.76 21.84 2.46 21.54C2.16 21.24 2 20.89 2 20.5V17H4V20H7V22M17 2H20.5C20.89 2 21.24 2.16 21.54 2.46C21.84 2.76 22 3.11 22 3.5V7H20V4H17V2M7 2V4H4V7H2V3.5C2 3.11 2.16 2.76 2.46 2.46C2.76 2.16 3.11 2 3.5 2H7M10.5 6C13 6 15 8 15 10.5C15 11.38 14.75 12.2 14.31 12.9L17.57 16.16L16.16 17.57L12.9 14.31C12.2 14.75 11.38 15 10.5 15C8 15 6 13 6 10.5C6 8 8 6 10.5 6M10.5 8C9.12 8 8 9.12 8 10.5C8 11.88 9.12 13 10.5 13C11.88 13 13 11.88 13 10.5C13 9.12 11.88 8 10.5 8Z"/></svg>', active: false });
 
         // Library — always available. Several of its tabs (Movies & TV,
         // Radio, Podcasts, Audiobooks) never needed MA in the first place,
@@ -9253,7 +9251,7 @@ class CrowMediaPlayerCard extends HTMLElement {
         // in full screen, Exit Full Screen comes first, on its own
         const QM_ORDER = [
           ...(this._fs ? ['qm_fullscreen', '|'] : []),
-          'qm_resume', 'qm_queue', 'qm_search', 'qm_ai_search', 'qm_library', '|',
+          'qm_resume', 'qm_queue', 'qm_search', 'qm_library', '|',
           'qm_mood', 'qm_ai_recs', 'qm_artist_radio', '@addq', 'qm_radio', '|',
           'qm_lyrics', '@viz', '@saver', '@skin', ...(this._fs ? [] : ['qm_fullscreen']), 'qm_sleep', 'qm_alarm', 'qm_pin', 'qm_mood_video', 'qm_trivia', 'qm_remote', 'qm_atv_apps', 'qm_soundtrack', '|',
           '@recaps', '@reports', '@share', '|',
@@ -9416,8 +9414,8 @@ class CrowMediaPlayerCard extends HTMLElement {
             else if (item.id === 'qm_library')      { expand().then(() => item._needsMA ? this._switchToMAAndRun(() => this._openMABrowser()) : this._openMABrowser()); }
             else if (item.id === 'qm_mood')         { expand().then(() => { this._queuePanelDirection = null; this._showAIMoodQueue(); }); }
             else if (item.id === 'qm_ai_recs')      { expand().then(() => { const _rMT = this._detectMediaType(this._hass?.states[this._entity]); (_rMT === 'tv' || _rMT === 'movie') ? this._showAIRecommendations() : _runMA(() => this._showAIRecommendations()); }); }
-            else if (item.id === 'qm_search')       { expand().then(() => _runMA(() => this._openLibrarySearch())); }
-            else if (item.id === 'qm_ai_search')    { expand().then(() => _runMA(() => this._showAISearchPanel())); }
+            // Search opens AI Search when AI features are on, otherwise the library's normal search
+            else if (item.id === 'qm_search')       { expand().then(() => _runMA(() => this._aiFeatureOn('discover') ? this._showAISearchPanel() : this._openLibrarySearch())); }
             else if (item.id === 'qm_ai_recap')        { expand().then(() => _runMA(() => this._showAIRecap())); }
             else if (item.id === 'qm_watch_recap')     { expand().then(() => this._showWatchRecap()); }
             else if (item.id === 'qm_rep_listening')   { expand().then(() => this._exportHistoryReport('music', 30)); }
@@ -12394,6 +12392,12 @@ class CrowMediaPlayerCard extends HTMLElement {
   }
 
   _toggleLyrics() {
+    // in full screen the card's own lyrics view is hidden: full screen's lyrics screen opens (or closes) instead
+    if (this._fs && typeof this._fsLyricsScreen === 'function') {
+      const _c = this.shadowRoot?.getElementById('cardOuter');
+      this._fsLyricsScreen(!_c?.hasAttribute('data-crow-fs-lyr'));
+      return;
+    }
     if (this._lyricsOpen) {
       this._closeLyrics();
     } else {
@@ -14152,14 +14156,24 @@ class CrowMediaPlayerCard extends HTMLElement {
 
   // "Search" in the menus: opens the library straight onto its all-music
   // search box (artists, albums, songs and playlists together — the normal
-  // Music Assistant search), focused so you can type at once. Back returns
-  // to the library's categories. Called directly from the menu tap, since
+  // Music Assistant search), focused so you can type at once. Back closes
+  // the library and returns to the player. Called directly from the menu tap, since
   // iPhone only brings up the keyboard from a tap.
   _openLibrarySearch() {
     this._maSavedSearch = null;          // open on a clean search, not the last one
     this._openMABrowser();
+    if (!this.shadowRoot) return null;
+    if (!this._maBrowserNavStack) this._maBrowserNavStack = [];
+    // back from results returns to this empty search box; back from here returns to the player
+    this._maBrowserNavStack.push({ tab: '__close__', searchBox: true });
+    return this._showLibrarySearchPrompt();
+  }
+
+  // The library's all-music search box, empty and focused, with nothing searched yet.
+  _showLibrarySearchPrompt() {
     const r = this.shadowRoot;
     if (!r) return null;
+    this._maLastSearch = null;
     const iosView = r.getElementById('maIosView');
     const maContent = r.getElementById('maContent');
     const searchRow = r.querySelector('.ma-search-row');
@@ -14178,8 +14192,6 @@ class CrowMediaPlayerCard extends HTMLElement {
     }
     if (searchRow) searchRow.style.display = '';
     if (backBtn) backBtn.classList.remove('hidden');
-    if (!this._maBrowserNavStack) this._maBrowserNavStack = [];
-    this._maBrowserNavStack.push({ tab: '__ios_root__', searchQuery: null, inSearchResults: false });
     if (input) {
       input.value = '';
       r.getElementById('maSearchClear')?.classList.add('hidden');
@@ -16048,7 +16060,7 @@ class CrowMediaPlayerCard extends HTMLElement {
         '</button>' +
         (_pinnableTab
           ? '<button class="ma-drill-action-btn" data-action="pin">' +
-              '<div class="ma-drill-btn-circle"><svg id="drillPinSvg" viewBox="0 0 24 24" style="fill:' + (_isPinned ? '#FFD60A' : 'currentColor') + '"><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/></svg></div>' +
+              '<div class="ma-drill-btn-circle"><svg id="drillPinSvg" viewBox="0 0 24 24"' + (_isPinned ? ' style="fill:#FFD60A"' : '') + '><path d="M16,12V4H17V2H7V4H8V12L6,14V16H11.2V22H12.8V16H18V14L16,12Z"/></svg></div>' +
               '<span class="ma-drill-btn-label" id="drillPinLabel">' + (_isPinned ? 'Unpin' : 'Pin') + '</span>' +
             '</button>'
           : '') +
@@ -16101,7 +16113,7 @@ class CrowMediaPlayerCard extends HTMLElement {
             _isPinned = _result;
             const svg   = btn.querySelector('#drillPinSvg');
             const label = btn.querySelector('#drillPinLabel');
-            if (svg)   svg.style.fill    = _isPinned ? '#FFD60A' : 'currentColor';
+            if (svg)   svg.style.fill    = _isPinned ? '#FFD60A' : '';   // unpinned: the same grey as the other buttons
             if (label) label.textContent = _isPinned ? 'Unpin' : 'Pin';
             this._showToast(_isPinned ? '\ud83d\udccd Pinned' : 'Unpinned');
             this._maLibRefreshPinnedUI(_pinnableTab);
@@ -16890,7 +16902,13 @@ class CrowMediaPlayerCard extends HTMLElement {
         sub.querySelector('#infoMenuReadLyrics').addEventListener('click', e => {
           e.stopPropagation(); if (!ready()) return; close();
           // the song that's playing: its lyrics open in the card's own lyrics view, in time with the music
-          if (playingSong) { this._closeInfoPopup(); if (!this._lyricsOpen) this._openLyrics(); return; }
+          // (in full screen, full screen's own lyrics screen)
+          if (playingSong) {
+            this._closeInfoPopup();
+            if (this._fs && typeof this._fsLyricsScreen === 'function') this._fsLyricsScreen(true);
+            else if (!this._lyricsOpen) this._openLyrics();
+            return;
+          }
           this._showLyricsSheet(lyricsSong);
         });
       }

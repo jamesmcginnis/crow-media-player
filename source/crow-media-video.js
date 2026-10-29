@@ -5126,7 +5126,9 @@ Include ALL tracks. Use null for unknown fields.`;
     });
   },
 
-  async _showAISearchPanel(initialQuery = '') {
+  // run: false reopens the panel with initialQuery typed in the box but not searched
+  // (used by Back after the blue Search button's library search)
+  async _showAISearchPanel(initialQuery = '', { run = true } = {}) {
     const r = this.shadowRoot;
     const popup   = r.getElementById('infoPopup');
     const content = r.getElementById('infoContent');
@@ -5309,7 +5311,7 @@ Include ALL tracks. Use null for unknown fields.`;
         if (!q) { _activeInp?.focus(); return; }
         if (_stale()) return;
         this._closeInfoPopup();
-        this._maNavigateToLibrarySearch(q);
+        this._maNavigateToLibrarySearch(q, { fromAISearch: true });
       };
       _doLibrarySearchFn = _doLibrarySearch; // update hoisted ref so initialQuery block can call it
 
@@ -5500,7 +5502,9 @@ Include ALL tracks. Use null for unknown fields.`;
       });
     };
 
-    if (initialQuery) {
+    if (initialQuery && !run) {
+      _renderSearch(initialQuery);
+    } else if (initialQuery) {
       _renderSearch(initialQuery, null, true);
       // Re-wire inputs after render
       const _inp0 = content.querySelector('#ai-search-input');

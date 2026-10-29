@@ -2140,7 +2140,9 @@ Object.assign(K.Card.prototype, {
   // tab marked active, so _searchMA's media_type filter stays unset and
   // results come back grouped across artists/albums/tracks/playlists in one
   // call instead of being scoped to a single category.
-  _maNavigateToLibrarySearch(query) {
+  // fromAISearch: reached from AI Search's blue Search button — Back then reopens
+  // AI Search with the same words in the box.
+  _maNavigateToLibrarySearch(query, { fromAISearch = false } = {}) {
     const rr = this.shadowRoot;
     const el = rr.getElementById('maIosView');
 
@@ -2153,13 +2155,19 @@ Object.assign(K.Card.prototype, {
     // (the browser popup was never opened there) — in that case everything
     // below was silently updating hidden DOM and nothing appeared on screen.
     const maPopup = rr.getElementById('maPopup');
-    if (maPopup && !maPopup.classList.contains('visible')) {
+    // Reached from outside the library (e.g. Search in the player's menu → AI Search →
+    // the blue Search button): Back then closes the library and returns to the player,
+    // rather than landing on the library's Discover screen, which was never opened.
+    const _fromOutside = !!(maPopup && !maPopup.classList.contains('visible'));
+    if (_fromOutside) {
+      this._maNavReset();                   // start clean, not on top of an old browse
       this._maBrowserOpenedAt = Date.now(); // matches _openMABrowser's backdrop-guard bookkeeping
       maPopup.classList.add('visible');
     }
 
     if (!this._maBrowserNavStack) this._maBrowserNavStack = [];
-    this._maBrowserNavStack.push({ tab: '__ios_root__', label: 'Discover' });
+    const _aiSearch = fromAISearch ? query : null;
+    this._maBrowserNavStack.push(_fromOutside ? { tab: '__close__', aiSearch: _aiSearch } : { tab: '__ios_root__', label: 'Discover', aiSearch: _aiSearch });
 
     el?.classList.add('hidden');
     rr.getElementById('maTabs')?.setAttribute('style', 'display:none');
@@ -2265,6 +2273,7 @@ Object.assign(K.Card.prototype, {
     // Cancel any in-flight drill-in fetch
     this._drillInToken = (this._drillInToken || 0) + 1;
     if (!this._maBrowserNavStack || !this._maBrowserNavStack.length) return;
+    const _wasInResults = !!this._maInSearchResults;
     const prev = this._maBrowserNavStack.pop();
     const backBtn   = this.shadowRoot?.getElementById('maBackBtn');
     const tabsEl    = this.shadowRoot?.getElementById('maTabs');
@@ -2277,6 +2286,19 @@ Object.assign(K.Card.prototype, {
     this._maLastSearch = null;
     this._maInSearchResults = false;
     this._maSavedSearch = null; // back = starting fresh, don't restore on next open
+    // Opened from outside the library (the player's menu): back returns to the player
+    if (prev.tab === '__close__') {
+      // Search from the menu with results showing: back to the empty search box first
+      if (prev.searchBox && _wasInResults) {
+        this._maBrowserNavStack.push(prev);
+        this._showLibrarySearchPrompt();
+        return;
+      }
+      this._closeMABrowser();
+      // came from AI Search's blue Search button: back to AI Search, words still in the box
+      if (prev.aiSearch != null) this._showAISearchPanel(prev.aiSearch, { run: false });
+      return;
+    }
     // When returning to root level
     if (!this._maBrowserNavStack.length) {
       // Return to iOS category list instead of showing tabs
@@ -2326,6 +2348,8 @@ Object.assign(K.Card.prototype, {
       // and reopened.
       this._renderMAIosView();
       if (iosView2) iosView2.classList.remove('hidden');
+      // came from AI Search's blue Search button: back to AI Search, words still in the box
+      if (prev.aiSearch != null) this._showAISearchPanel(prev.aiSearch, { run: false });
       return;
     }
     // Sentinel for returning to a specific Pinned category (e.g. Queues)
