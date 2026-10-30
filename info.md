@@ -56,7 +56,7 @@ An iPhone-style media player card for Home Assistant, with the integration that 
 
 **Visualiser and screensaver**
 - Eleven visualiser styles, including a spectrum equaliser, VU meters, a vinyl turntable, a cassette deck, Synthwave and Code Rain
-- Eleven screensavers, including Album Wall, Rain on Glass, Aurora, Lava Lamp, Night Sky, Fireplace, Ocean, and flip, analogue and word clocks
+- Twelve screensavers, including Album Wall, Rain on Glass, Aurora, Lava Lamp, Night Sky, Fireplace, Ocean, flip, analogue and word clocks, and Info Screens: full-colour screens for the time, lyrics, up next, today's calendar, timers, shopping and to-do lists, each room's temperature, the heating, fans, the lights that are on, blinds, occupancy, the doors and windows left open, security, doorbells, cameras, appliances (smart plugs too), the robot vacuum, printer ink and plants, to swipe through in full screen
 
 **Recaps and PDFs**
 - Music Recap and Video Recap of your week

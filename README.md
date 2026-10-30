@@ -339,10 +339,37 @@ Start it from **Screensaver** in the quick menu, or have it start by itself with
 - **Flip Clock**: split-flap digits that flip over as the minutes change
 - **Analogue Clock**: a dial with a smoothly sweeping second hand, in any of twelve faces chosen in the editor (Luxury by default)
 - **Word Clock**: the time spelled out in a grid of letters, such as "IT IS TWENTY PAST TEN", lit in the album's colour
+- **Info Screens**: one full-colour screen at a time, each a plain colour with one large, gently animated visual, changing by itself (every 15 seconds unless you choose otherwise). In full screen you can also swipe left or right, or use the arrow keys, to go back and forth; over the artwork they just change by themselves. A screen with nothing to show is passed over:
+  - **Time**: the time and date, large
+  - **Today**: dials for the volume, songs played today and time spent listening, with what's switched on (shuffle, repeat, mute, the sleep timer)
+  - **Up Next**: the next songs in the Music Assistant queue with their album artwork (looked up when the queue has none), sliding in one after another
+  - **Lyrics**: every line of the song gliding smoothly up as it plays, the line being sung large and bright, like the card's own synced lyrics
+  - **Today's Calendar**: the rest of today from the calendars chosen under **Calendars** in the editor, the next event larger. With no calendars chosen, or nothing left today, it isn't shown
+  - **Timers**: every Home Assistant timer that's running or paused, as a countdown inside a ring that empties (turning amber, then red, as it runs out), with the time it ends
+  - **Shopping**: what's still to buy on your shopping lists (to-do lists named shopping or groceries)
+  - **To-Do**: what's still to do on your other to-do lists, with due dates
+  - **Rooms**: the temperature (coloured from blue when cold, through green, to red when hot) and humidity in each room, grouped by your Home Assistant groups or floors, from the temperature and humidity sensors in your areas, warmest first (sensors not in an area, often outdoor ones, are left out; a room's own temperature sensor is used rather than a radiator valve's, a thermostat's or a gadget's, which only count when the room has nothing else)
+  - **Heating**: a dial for every thermostat (smaller when there are more), grouped by your Home Assistant groups or floors, with the temperature now, its ring coloured by the temperature (blue when cold to red when hot, pale when off), and what it's set to
+  - **Fans**: every fan that's on, with its speed and whether it's oscillating; smart plugs count too when they're named for a fan, given a fan icon or shown as a fan with Home Assistant's Switch as X
+  - **Lights On**: every light that's on, by room, with its brightness (light groups aren't counted twice). Only while a light is on
+  - **Blinds & Covers**: blinds, curtains, shades and awnings that are open, and how far
+  - **Occupancy**: each room with an occupancy, presence or motion sensor, lit while someone's in it (for five minutes after the last movement, with motion sensors) and how long for
+  - **Doors & Windows**: what's open and for how long, as a list with a door, window or garage door icon for each. It finds every door, window, garage door and opening sensor in Home Assistant by itself, by room, with nothing to set up, and only shows while something is open
+  - **Security**: the alarm's state and every lock, unlocked ones highlighted
+  - **Doorbell**: the picture from every doorbell camera, refreshed every ten seconds (every thirty over the artwork), with when it rang for half an hour after it rings (from a doorbell event, or a doorbell or ding sensor, on the same device or in the same room). A camera counts as a doorbell when its name, entity ID or device says doorbell, when its icon is a doorbell (such as `mdi:doorbell-video`, set under the entity's settings in Home Assistant), or when its device has a doorbell event. A doorbell without a camera shows only for half an hour after it rings
+  - **Cameras**: the latest picture from every camera, three to a row (two on a phone held upright), refreshed every ten seconds (every thirty over the artwork). A camera that shows up several times (its HomeKit, snapshot and last recording entities) is shown once, its HomeKit picture first; live view entities are left out. Doorbell cameras are on the Doorbell screen instead, unless that's switched off
+  - **Appliances**: washing machines, tumble dryers, dishwashers, air fryers, kettles, coffee machines, microwaves, ovens, slow cookers, bread makers and EV chargers while they're running, and for half an hour after they finish ("Finished 9 min ago", or "Boiled" for a kettle, paler). They're found by their icon (such as `mdi:tumble-dryer`, set under the entity's settings in Home Assistant), their entity IDs, their names or their device's name or model, so an air fryer called "Leonard" is still found from `switch.airfryer_plug` or its icon. Smart appliances show what they're doing and the time left. Ones on a smart plug count as running while the plug's power is over a few watts (with three minutes' grace for pauses, such as a dryer's cool-down), or while its energy (kWh) is going up quickly, and show how long they've been running (from Home Assistant's history) with the power or the energy used. A plug that measures neither counts while it's switched on, unless it's been on for more than six hours
+  - **Robot Vacuum**: while it's out, its battery in a ring and what it's doing
+  - **Printers**: ink, toner and drums under 20%
+  - **Plants**: only plants that need attention: the Plant integration's problems, and soil moisture sensors under 20%
+
+  Nothing is left out however many lights, rooms, thermostats, events, list items, doors or windows there are: a long list goes into two columns on a wide screen with its rows closer together, and if it still doesn't fit you can scroll it up and down (drag, or the mouse wheel); left alone, it scrolls slowly down and back up by itself, and the screen doesn't change until the whole list has been shown (and a moment more to read the last of it).
+
+  Every screen is on unless you untick it. Choose which screens show, and how often they change, under **Info Screens** in the editor's Screensaver section. In YAML: `screensaver_screens` (a list of `time`, `today`, `upnext`, `lyrics`, `calendar`, `timers`, `shopping`, `todo`, `rooms`, `heating`, `fans`, `lights`, `covers`, `occupancy`, `open`, `security`, `doorbell`, `cameras`, `appliances`, `vacuum`, `printers`, `plants`), `screensaver_calendars` (a list of calendar entities) and `screensaver_screens_every` (seconds; `0` for swipe only in full screen). Bear in mind that Doors & Windows, Security, Occupancy, Doorbell and Cameras show what's open, which locks are unlocked, who's in which room and what your cameras see to anyone who can see the screen
 
 A small clock and the date (and the weather) can sit in the corner of the styles that don't show the time themselves. No account or key needed.
 
-**Full-screen screensaver.** Turn on **Full Screen** under Screensaver in the editor to cover the whole screen, Home Assistant's header and sidebar included.
+**Full-screen screensaver.** Turn on **Full Screen** under Screensaver in the editor to cover the whole screen, Home Assistant's header and sidebar included. Started while the card itself is in full screen (from its ⋮ menu → Screensaver, or by itself), it always covers the whole screen.
 
 - **Every style is made for full screen**: the clocks and dials scale with the screen, the Album Wall keeps its covers square (more rows on an upright phone, more columns on a wide screen), and the others stay in proportion
 - **Notches and home bars**: the clock and text stay clear of them on iPhones and iPads
@@ -396,6 +423,7 @@ Long-press the artwork while music plays to open the lyrics.
 - **Seasons and episodes**: episode counts and air dates (from TVmaze when AI is off or doesn't know the show). New seasons appear as soon as TVmaze lists them
 - **Episode pages**: the show's artwork, the season and episode, the title, air date and rating, tappable writer and director pills, the description and a fun fact. With AI on, **Ask**, **Trivia** and **Soundtrack** sit under the artwork
 - Back from an episode returns to the show at the same scroll position
+- **Season and episode lists** look like Discover's own list, with a thin line between rows. Hold a season (or swipe it left) for **Export Season**, a PDF of just that season's episodes. With AI on, hold an episode for **Info**, **Ask**, **Trivia**, **Spot It** and **Soundtrack**, swipe it right for **Soundtrack**, or left for **Trivia** and **More**; Ask, Trivia and Spot It open the episode with that answer already showing
 - **Ask / Mood Match / Trivia / Spot It** (AI), **Where to Watch** and content warnings
 
 **Films:**
