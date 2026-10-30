@@ -2643,7 +2643,8 @@ Object.assign(K.Card.prototype, {
   // ── Export: a TV show's episode guide ──
   // Episodes from TVmaze (free, cached), or the AI's cached lists for any
   // season TVmaze doesn't have; episodes in Watch History are ticked.
-  _exportEpisodeGuidePDF(data, artUrl) {
+  // onlySeason: just that season (a season row's Export Season).
+  _exportEpisodeGuidePDF(data, artUrl, onlySeason = null) {
     if (!this._pdfOn('info')) return;   // switched off in the card editor
     this._exportListPDF(async (preview) => {
       const showTitle = data?.title || '';
@@ -2660,7 +2661,8 @@ Object.assign(K.Card.prototype, {
       const fmtDate = d => { const t = Date.parse(d || ''); return isNaN(t) ? '' : new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); };
       const sections = [];
       let total = 0;
-      for (let n = 1; n <= seasons; n++) {
+      const one = Number.isFinite(+onlySeason) && +onlySeason > 0 ? +onlySeason : null;
+      for (let n = one || 1; n <= (one || seasons); n++) {
         // Episode titles are stored HTML-escaped for the panel; the PDF wants plain text.
         const unesc = v => String(v || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
         let eps = tm.filter(e => e.season === n).map(e => ({ ep: e.ep, title: unesc(e.title), airdate: e.airdate }));
@@ -2676,12 +2678,15 @@ Object.assign(K.Card.prototype, {
       }
       if (!sections.length) return null;
       return {
-        title: showTitle, subtitle: data.year || '',
+        title: showTitle, subtitle: one ? 'Season ' + one : (data.year || ''),
         heroSrc: artUrl || null,
-        rows: [['Seasons', String(seasons)], ['Episodes', String(total)], ['Watched', watched.size ? watched.size + ' of ' + total : 'None yet'],
-          ['Genre', (data.genres || []).slice(0, 3).join(', ')]],
+        rows: one
+          ? [['Season', String(one)], ['Episodes', String(total)], ['Watched', (() => { const w = sections[0]?.items.filter(i => i.tick).length || 0; return w ? w + ' of ' + total : 'None yet'; })()],
+            ['Genre', (data.genres || []).slice(0, 3).join(', ')]]
+          : [['Seasons', String(seasons)], ['Episodes', String(total)], ['Watched', watched.size ? watched.size + ' of ' + total : 'None yet'],
+            ['Genre', (data.genres || []).slice(0, 3).join(', ')]],
         sections,
-        filename: 'episode-guide-' + showTitle,
+        filename: 'episode-guide-' + showTitle + (one ? '-season-' + one : ''),
       };
     });
   },

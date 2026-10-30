@@ -926,7 +926,7 @@ class CrowMediaVisualiser {
 
 // Start Automatically (editor → Visualiser & Screensaver): 'off' (the default), 'visualiser' or 'screensaver',
 // the time the card is left alone first (minutes; 0 = straight away, visualiser only) and the style each uses.
-const CROW_MEDIA_SAVER_STYLES = ['aurora', 'clock', 'wall', 'flip', 'analog', 'lava', 'rain', 'night', 'words', 'fire', 'ocean'];
+const CROW_MEDIA_SAVER_STYLES = ['aurora', 'clock', 'wall', 'flip', 'analog', 'lava', 'rain', 'night', 'words', 'fire', 'ocean', 'screens'];
 
 // ── Screensaver styles ─────────────────────────────────────────────────────
 // One copy, used in two places: the card's own styles (the screensaver over
@@ -1071,7 +1071,7 @@ function crowMediaAutoStart(cfg) {
 // checking it answers in time AND still answers in the shape the card reads. Run from the browser,
 // the same way the card reaches each service, so it shows what works on this device.
 // ══════════════════════════════════════════════════════════════════════
-const CROW_MEDIA_VERSION = '0.0.3';
+const CROW_MEDIA_VERSION = '0.0.4';
 console.info('%c CROW MEDIA PLAYER %c v' + CROW_MEDIA_VERSION + ' ', 'background:#007AFF;color:#fff;font-weight:700;border-radius:3px 0 0 3px;padding:2px 4px', 'background:#333;color:#fff;border-radius:0 3px 3px 0;padding:2px 4px');
 
 // tidy away a setting earlier versions saved on this device
@@ -7545,9 +7545,6 @@ class CrowMediaPlayerCard extends HTMLElement {
         .tv-ep-row {
           display: flex; gap: 10px; align-items: flex-start;
           padding: 10px 12px;
-          border-radius: 12px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
           cursor: pointer;
           transition: transform 0.3s cubic-bezier(0.2,0.8,0.4,1), background 0.15s ease;
           position: relative; z-index: 1;
@@ -9081,6 +9078,7 @@ class CrowMediaPlayerCard extends HTMLElement {
             words: 'M3,4H21V6H3V4M3,9H13V11H3V9M15,9H21V11H15V9M3,14H8V16H3V14M10,14H21V16H10V14M3,19H16V21H3V19Z',
             fire: 'M17.66,11.2C17.43,10.9 17.15,10.64 16.89,10.38C16.22,9.78 15.46,9.35 14.82,8.72C13.33,7.26 13,4.85 13.95,3C13,3.23 12.17,3.75 11.46,4.32C8.87,6.4 7.85,10.07 9.07,13.22C9.11,13.32 9.15,13.42 9.15,13.55C9.15,13.77 9,13.97 8.8,14.05C8.57,14.15 8.33,14.09 8.14,13.93C8.08,13.88 8.04,13.83 8,13.76C6.87,12.33 6.69,10.28 7.45,8.64C5.78,10 4.87,12.3 5,14.47C5.06,14.97 5.12,15.47 5.29,15.97C5.43,16.57 5.7,17.17 6,17.7C7.08,19.43 8.95,20.67 10.96,20.92C13.1,21.19 15.39,20.8 17.03,19.32C18.86,17.66 19.5,15 18.56,12.72L18.43,12.46C18.22,12 17.66,11.2 17.66,11.2Z',
             ocean: 'M20,12H22V14H20C18.62,14 17.26,13.65 16,13C13.5,14.3 10.5,14.3 8,13C6.74,13.65 5.37,14 4,14H2V12H4C5.39,12 6.78,11.53 8,10.67C10.44,12.38 13.56,12.38 16,10.67C17.22,11.53 18.6,12 20,12M20,6H22V8H20C18.62,8 17.26,7.65 16,7C13.5,8.3 10.5,8.3 8,7C6.74,7.65 5.37,8 4,8H2V6H4C5.39,6 6.78,5.53 8,4.67C10.44,6.38 13.56,6.38 16,4.67C17.22,5.53 18.6,6 20,6M20,18H22V20H20C18.62,20 17.26,19.65 16,19C13.5,20.3 10.5,20.3 8,19C6.74,19.65 5.37,20 4,20H2V18H4C5.39,18 6.78,17.53 8,16.67C10.44,18.38 13.56,18.38 16,16.67C17.22,17.53 18.6,18 20,18Z',
+            screens: 'M4,5H11V12H4V5M13,5H20V9H13V5M13,11H20V19H13V11M4,14H11V19H4V14Z',
             shuffle: 'M14.83,13.41L13.42,14.82L16.55,17.95L14.5,20H20V14.5L17.96,16.54L14.83,13.41M14.5,4L16.54,6.04L4,18.59L5.41,20L17.96,7.46L20,9.5V4M10.59,9.17L5.41,4L4,5.41L9.17,10.58L10.59,9.17Z',
           };
           // a switch for the editor's Start Automatically → Screensaver (kept on this device)
@@ -9095,7 +9093,7 @@ class CrowMediaPlayerCard extends HTMLElement {
             } });
           [['wall', 'Album Wall'], ['rain', 'Rain on Glass'], ['aurora', 'Ambient Aurora'], ['lava', 'Lava Lamp'],
            ['night', 'Night Sky'], ['fire', 'Fireplace'], ['ocean', 'Ocean'],
-           ['clock', 'Clock & Weather'], ['flip', 'Flip Clock'], ['analog', 'Analogue Clock'], ['words', 'Word Clock'], ['shuffle', 'Shuffle']]
+           ['clock', 'Clock & Weather'], ['flip', 'Flip Clock'], ['analog', 'Analogue Clock'], ['words', 'Word Clock'], ['screens', 'Info Screens'], ['shuffle', 'Shuffle']]
             .forEach(([k, label]) => items.push({ id: 'qm_saver_' + k, label, icon: '<path d="' + _ssIcons[k] + '"/>', active: k === _ssPick }));
         }
 
@@ -9217,8 +9215,9 @@ class CrowMediaPlayerCard extends HTMLElement {
           ? '<path d="' + CROW_MEDIA_FS_ICONS.exit + '"/>'
           : '<path d="M5,5H10V7H7V10H5V5M14,5H19V10H17V7H14V5M17,14H19V19H14V17H17V14M10,17V19H5V14H7V17H10Z"/>' });
         if (this._fs) {
-          // the visualiser, screensaver, skins and the remote draw on the card's own artwork, which full screen covers
-          for (let _i = items.length - 1; _i >= 0; _i--) if (/^qm_(viz_|saver_|skin_|remote$|atv_apps$)/.test(items[_i].id)) items.splice(_i, 1);
+          // the visualiser, skins and the remote draw on the card's own artwork, which full screen covers (full screen
+          // has its own remote button); the screensaver stays, and fills the screen
+          for (let _i = items.length - 1; _i >= 0; _i--) if (/^qm_(viz_|skin_|remote$|atv_apps$)/.test(items[_i].id)) items.splice(_i, 1);
           // the lyrics are always showing in full screen, so Lyrics becomes Translate Lyrics (when it's switched on)
           const _li = items.findIndex(it => it.id === 'qm_lyrics');
           const _canTr = this._featOn('lyrics_translate') && this._aiFeatureOn('ask') && !!(this._fsLyr && this._fsLyr.length);
@@ -9241,7 +9240,7 @@ class CrowMediaPlayerCard extends HTMLElement {
           share:  { label: 'Share & Announce', icon: QM_ICON.share,  ids: ['qm_copy_link', 'qm_announce', 'qm_sendmsg'] },
           viz:    { label: 'Visualiser',       icon: '<path d="' + CROW_MEDIA_VIZ_ICONS.eq + '"/>', ids: ['qm_viz_artwork', ...CROW_MEDIA_VIZ_STYLES.map(s => 'qm_viz_' + s[0]), 'qm_viz_shuffle'] },
           skin:   { label: 'Skin',             icon: '<path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>', ids: ['qm_skin_crow', ...CROW_MEDIA_SKINS.map(k => 'qm_skin_' + k.id)] },
-          saver:  { label: 'Screensaver',      icon: '<path d="M14,6L10.25,11L13.1,14.8L11.5,16C9.81,13.75 7,10 7,10L1,18H23L14,6Z"/>', ids: ['auto', 'wall', 'rain', 'aurora', 'lava', 'night', 'fire', 'ocean', 'clock', 'flip', 'analog', 'words', 'shuffle'].map(k => 'qm_saver_' + k) },
+          saver:  { label: 'Screensaver',      icon: '<path d="M14,6L10.25,11L13.1,14.8L11.5,16C9.81,13.75 7,10 7,10L1,18H23L14,6Z"/>', ids: ['auto', 'wall', 'rain', 'aurora', 'lava', 'night', 'fire', 'ocean', 'clock', 'flip', 'analog', 'words', 'screens', 'shuffle'].map(k => 'qm_saver_' + k) },
         };
         // Top level, in sections: find & browse · discover & build · what's
         // playing now · recaps and sharing.
@@ -14993,7 +14992,8 @@ class CrowMediaPlayerCard extends HTMLElement {
   _saverOn() { return true; }
   // Full Screen switch (editor → Visualiser & Screensaver → Screensaver): off (the default) keeps it over the
   // artwork; on covers the whole screen. Saved as screensaver_area: 'screen' or 'artwork'.
-  _saverFull() { return this._config?.screensaver_area === 'screen'; }
+  // full screen when the editor says so, and always while the card is in full screen (which covers the artwork)
+  _saverFull() { return this._config?.screensaver_area === 'screen' || !!this._fs; }
   // Does the screensaver start by itself? The editor's Start Automatically → Screensaver, unless it's been
   // switched on or off from the quick menu's Screensaver toggle on this device (kept in the browser)
   _saverAutoAfter() {
@@ -23220,6 +23220,8 @@ class CrowMediaPlayerCard extends HTMLElement {
       play_all: '#007AFF', replace: '#007AFF', play_now: '#007AFF', sqPlay: '#007AFF', pchPlayAll: '#007AFF',
       pin: '#FF9F0A', mtPin: '#FF9F0A',
       more_info: '#32ADE6', copy_link: '#30B0C7', share: '#30B0C7', artist_radio: '#AF52DE', mtSoundtrack: '#AF52DE',
+      // TV seasons and episodes
+      epSoundtrack: '#AF52DE', epTrivia: '#FF2D55', epInfo: '#32ADE6', tvsExport: '#30B0C7',
       sqRename: '#5856D6', recapRename: '#5856D6', rename: '#5856D6',
       more: '#8E8E93',
     };

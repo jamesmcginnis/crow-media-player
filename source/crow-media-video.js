@@ -7996,15 +7996,14 @@ Include ALL tracks. Use null for unknown fields.`;
 
     // Build season rows immediately — episode counts fetched async below
     const seasonRows = Array.from({ length: totalSeasons }, (_, i) => i + 1).map(n => `
-      <div class="tv-season-row" data-season="${n}" style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:${this._pt("bg")};border:1px solid ${this._pt("div")};border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
-        <div style="width:36px;height:36px;border-radius:8px;background:rgba(99,179,237,0.12);border:1px solid rgba(99,179,237,0.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-size:13px;font-weight:700;color:#63b3ed;">${n}</span>
+      <div class="tv-season-row" data-season="${n}" style="display:flex;align-items:center;gap:14px;padding:12px 0;cursor:pointer;-webkit-tap-highlight-color:transparent;">
+        <div style="width:32px;height:32px;border-radius:8px;background:rgba(99,179,237,0.16);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="font-size:14px;font-weight:700;color:#63b3ed;">${n}</span>
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;color:${this._pt("text")};">Season ${n}</div>
-          <div id="tv-ep-count-${n}" style="font-size:11px;color:${this._pt("dim")};margin-top:1px;">Loading…</div>
+          <div style="font-size:16px;letter-spacing:-0.2px;color:${this._pt("text")};">Season ${n}</div>
+          <div id="tv-ep-count-${n}" style="font-size:12px;color:${this._pt("dim")};margin-top:2px;">Loading…</div>
         </div>
-        
       </div>`).join('');
 
     this.shadowRoot?.getElementById('queueBuildingOverlay')?.style.setProperty('display', 'none');
@@ -8021,7 +8020,7 @@ Include ALL tracks. Use null for unknown fields.`;
           <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:${this._pt("text")}"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,19L8,15H10.5V12H13.5V15H16L12,19Z"/></svg>Export
         </button>` : ''}
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;">${seasonRows}</div>`;
+      <div class="tv-season-list" style="display:flex;flex-direction:column;">${seasonRows}</div>`;
 
     content.querySelector('#tv-seasons-back').addEventListener('click', () => {
       this._renderVideoInfoDetail(content, data, artUrl);
@@ -8032,6 +8031,18 @@ Include ALL tracks. Use null for unknown fields.`;
     });
 
     const self = this;
+    // each season: hold for Episodes and Export Season (a PDF of just that season's episodes), swipe left for
+    // Export Season and More. With PDF exports off there's nothing to add, so the rows are tap-only (still in
+    // the card's list style).
+    content.querySelectorAll('.tv-season-row').forEach(row => {
+      const n = parseInt(row.dataset.season, 10);
+      if (this._pdfOn('info')) {
+        this._wireRowMenu(row, null, () => [
+          { id: 'tvsEpisodes', label: 'Episodes', icon: 'M3,4H7V8H3V4M9,5V7H21V5H9M3,10H7V14H3V10M9,11V13H21V11H9M3,16H7V20H3V16M9,17V19H21V17H9', run: () => row.click() },
+          { id: 'tvsExport', label: 'Export Season', icon: 'M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,19L8,15H10.5V12H13.5V15H16L12,19Z', run: () => this._exportEpisodeGuidePDF(data, artUrl, n) },
+        ], { left: ['tvsExport', 'more'] });
+      } else this._rowSwipe(row, null);
+    });
     content.querySelectorAll('.tv-season-row').forEach(row => {
       row.addEventListener('click', () => {
         // Park the seasons list so Back from the episodes restores it
@@ -8236,13 +8247,13 @@ Include ALL tracks. Use null for unknown fields.`;
 
 
     const epRows = episodes.map(ep => `
-      <div class="tv-ep-row" data-ep="${ep.ep}" style="display:flex;align-items:flex-start;gap:12px;padding:10px 14px;background:${this._pt("bg")};border:1px solid ${this._pt("div")};border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;">
-        <div style="width:28px;text-align:center;flex-shrink:0;padding-top:1px;">
-          <span style="font-size:12px;font-weight:700;color:rgba(99,179,237,0.7);">${ep.ep}</span>
+      <div class="tv-ep-row" data-ep="${ep.ep}" style="display:flex;align-items:center;gap:14px;padding:12px 0;cursor:pointer;-webkit-tap-highlight-color:transparent;">
+        <div style="width:32px;text-align:center;flex-shrink:0;">
+          <span style="font-size:14px;font-weight:700;color:#63b3ed;">${ep.ep}</span>
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;color:${this._pt("text")};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ep.title || 'Episode ' + ep.ep}</div>
-          ${ep.tease ? '<div style="font-size:11px;color:' + this._pt('dim') + ';margin-top:2px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + ep.tease + '</div>' : ep.airdate ? '<div style="font-size:11px;color:' + this._pt('dim') + ';margin-top:1px;">' + self._formatAirdate(ep.airdate) + '</div>' : ''}
+          <div style="font-size:16px;letter-spacing:-0.2px;color:${this._pt("text")};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${ep.title || 'Episode ' + ep.ep}</div>
+          ${ep.tease ? '<div style="font-size:12px;color:' + this._pt('dim') + ';margin-top:2px;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + ep.tease + '</div>' : ep.airdate ? '<div style="font-size:12px;color:' + this._pt('dim') + ';margin-top:2px;">' + self._formatAirdate(ep.airdate) + '</div>' : ''}
         </div>
         
       </div>`).join('');
@@ -8258,32 +8269,52 @@ Include ALL tracks. Use null for unknown fields.`;
           <div style="font-size:11px;color:${this._pt("dim")};">Season ${seasonNum} · ${episodes.length} episode${episodes.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:6px;">${epRows}</div>`;
+      <div class="tv-ep-list" style="display:flex;flex-direction:column;">${epRows}</div>`;
 
     content.querySelector('#tv-eps-back').addEventListener('click', _goBack);
 
+    // open an episode's page (open: 'ask', 'trivia' or 'spot' opens that answer on it straight away)
+    const _openEp = (row, open = null) => {
+      const epIdx = parseInt(row.dataset.ep, 10) - 1;
+      const ep = episodes[epIdx] || episodes.find(e => e.ep === parseInt(row.dataset.ep, 10));
+      if (!ep) return;
+      // Park this list (the real nodes, handlers and all) so Back from the
+      // episode puts it straight back at the same scroll position — no
+      // rebuild, no spinner.
+      const _parked = document.createDocumentFragment();
+      const _scroll = content.scrollTop;
+      while (content.firstChild) _parked.appendChild(content.firstChild);
+      self._showTvEpisodeDetail(content, ep, data, seasonNum, artUrl, () => {
+        content.innerHTML = '';
+        content.appendChild(_parked);
+        content.scrollTop = _scroll;
+      }, { open });
+    };
+    // each episode: hold for Info, Ask, Trivia, Spot It and Soundtrack; swipe right for Soundtrack, left for
+    // Trivia and More. They're all AI, so with AI off the rows are tap-only (still in the card's list style).
+    const _askOn = this._aiFeatureOn('ask'), _discOn = this._aiFeatureOn('discover');
+    const _I = {
+      info: 'M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z',
+      ask: 'M20,2H4A2,2 0 0,0 2,4V22L6,18H20A2,2 0 0,0 22,16V4A2,2 0 0,0 20,2M6,9H18V11H6V9M14,14H6V12H14V14M18,8H6V6H18V8Z',
+      trivia: 'M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z',
+      spot: 'M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z',
+      music: 'M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z',
+    };
     content.querySelectorAll('.tv-ep-row').forEach(row => {
-      row.addEventListener('click', () => {
-        const epIdx = parseInt(row.dataset.ep, 10) - 1;
-        const ep = episodes[epIdx] || episodes.find(e => e.ep === parseInt(row.dataset.ep, 10));
-        if (!ep) return;
-        // Park this list (the real nodes, handlers and all) so Back from the
-        // episode puts it straight back at the same scroll position — no
-        // rebuild, no spinner.
-        const _parked = document.createDocumentFragment();
-        const _scroll = content.scrollTop;
-        while (content.firstChild) _parked.appendChild(content.firstChild);
-        self._showTvEpisodeDetail(content, ep, data, seasonNum, artUrl, () => {
-          content.innerHTML = '';
-          content.appendChild(_parked);
-          content.scrollTop = _scroll;
-        });
-      });
+      row.addEventListener('click', () => _openEp(row));
+      if (!_askOn && !_discOn) { this._rowSwipe(row, null); return; }
+      this._wireRowMenu(row, null, () => [
+        { id: 'epInfo', label: 'Info', icon: _I.info, run: () => _openEp(row) },
+        _askOn ? { id: 'epAsk', label: 'Ask', icon: _I.ask, run: () => _openEp(row, 'ask') } : null,
+        _askOn ? { id: 'epTrivia', label: 'Trivia', icon: _I.trivia, run: () => _openEp(row, 'trivia') } : null,
+        _askOn ? { id: 'epSpot', label: 'Spot It', icon: _I.spot, run: () => _openEp(row, 'spot') } : null,
+        _discOn ? { id: 'epSoundtrack', label: 'Soundtrack', icon: _I.music, run: () => this._showAISearchPanel(`Music from ${showTitle}`) } : null,
+      ], { right: ['epSoundtrack'], left: ['epTrivia', 'more'] });
     });
   },
 
   // ── TV Episode detail ────────────────────────────────────────────────────────
-  async _showTvEpisodeDetail(content, ep, showData, seasonNum, artUrl, onBack = null) {
+  async _showTvEpisodeDetail(content, ep, showData, seasonNum, artUrl, onBack = null, opts = {}) {
     const showTitle = showData.title || '';
     const agentId = this._config?.ai_conversation_agent || 'conversation.home_assistant';
     const aiOn   = this._aiFeatureOn('info');      // AI episode details
@@ -8406,6 +8437,13 @@ Include ALL tracks. Use null for unknown fields.`;
       if (this._epDetailToken !== _token || !content.isConnected) return;
     }
     _render(detail);
+    // opened from the episode list's menu (Ask, Trivia or Spot It): that answer opens straight away. Just after
+    // the card's ghost-tap guard (which ignores clicks for a moment after a panel changes), and only if this
+    // episode is still showing.
+    if (opts?.open) {
+      const btn = content.querySelector('#ep-' + opts.open + '-btn');
+      setTimeout(() => { if (btn?.isConnected && this._epDetailToken === _token) btn.click(); }, 400);
+    }
   },
 
   // ── Episode Detail Action Row (Ask / Trivia) ─────────────────────────────────

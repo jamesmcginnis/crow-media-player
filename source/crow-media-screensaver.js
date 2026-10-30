@@ -1608,6 +1608,309 @@ const CROW_MEDIA_SAVER_FULL_CSS = `
   .cs-full .cs-under { bottom: calc(12% + env(safe-area-inset-bottom, 0px)); font-size: clamp(14px, 2.8cqmin, 32px); }
   @media (prefers-reduced-motion: reduce) { .cs-full .cs-stars::after { display: none; } }
 `;
+
+/* ══════════════════════════════════════════════════════════════════
+ * INFO SCREENS: full-colour screens, one at a time (see _saverScreens)
+ * ══════════════════════════════════════════════════════════════════ */
+// in related runs: the music, the day, the warmth of the house, its lights and rooms, its security, then its machines
+const CROW_MEDIA_SCR_KEYS = ['time', 'today', 'upnext', 'lyrics', 'calendar', 'timers', 'shopping', 'todo', 'rooms', 'heating', 'fans', 'lights', 'covers', 'occupancy', 'open', 'security', 'doorbell', 'cameras', 'appliances', 'vacuum', 'printers', 'plants'];
+// screens left out unless they're ticked in the editor (none: every screen is on unless unticked)
+const CROW_MEDIA_SCR_OFF = [];
+// Doors, windows and garage doors: simple line drawings, in the same style as the full-screen player's icons
+const CROW_MEDIA_SCR_ICON = {
+  bell: '<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/><path d="M12 5V3.5"/></svg>',
+  door: '<svg viewBox="0 0 24 24"><path d="M4 21h16"/><path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17"/><path d="M6 3.4l6.5 2.1v16.1L6 21"/><path d="M10.5 12.6v1.2"/></svg>',
+  window: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M12 3.5v17"/><path d="M12 3.5l6.2 2.4v12.2L12 20.5"/><path d="M3.5 12H12"/></svg>',
+  bulb: '<svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/></svg>',
+  therm: '<svg viewBox="0 0 24 24"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z"/><path d="M12 9v7"/></svg>',
+  battery: '<svg viewBox="0 0 24 24"><rect x="3" y="7.5" width="16" height="9" rx="2"/><path d="M21 10.5v3"/><path d="M5.8 10.3v3.4"/></svg>',
+  check: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/></svg>',
+  sunrise: '<svg viewBox="0 0 24 24"><path d="M3 18h18"/><path d="M7 18a5 5 0 0 1 10 0"/><path d="M12 4v5M9.5 6.5L12 4l2.5 2.5"/><path d="M4.2 12.8l1.4.8M19.8 12.8l-1.4.8"/></svg>',
+  sunset: '<svg viewBox="0 0 24 24"><path d="M3 18h18"/><path d="M7 18a5 5 0 0 1 10 0"/><path d="M12 9V4M9.5 6.5L12 9l2.5-2.5"/><path d="M4.2 12.8l1.4.8M19.8 12.8l-1.4.8"/></svg>',
+  sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>',
+  moon: '<svg viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/></svg>',
+  shield: '<svg viewBox="0 0 24 24"><path d="M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>',
+  unlock: '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 7.6-1.8"/></svg>',
+  washer: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="4.5"/><path d="M7 6.5h2"/></svg>',
+  dryer: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="4.5"/><path d="M10.5 11.5c.8.8.8 2.2 0 3M13.5 11.5c.8.8.8 2.2 0 3"/><path d="M7 6.5h2"/></svg>',
+  dishwasher: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h16"/><path d="M8 5.5h3"/><path d="M8 13h8M8 16.5h8"/></svg>',
+  airfryer: '<svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="4"/><path d="M5 13h14"/><path d="M10 16.5h4"/><circle cx="12" cy="7.5" r="1.6"/></svg>',
+  kettle: '<svg viewBox="0 0 24 24"><path d="M7 20h10l-1.2-9.5H8.2z"/><path d="M9.5 10.5V8h5v2.5"/><path d="M8 13L4.8 10.6"/><path d="M15.8 11.5c2.4 0 3.2 1.4 3.2 3.4s-1 3.1-2.4 3.1"/><path d="M5.5 20h13"/></svg>',
+  coffee: '<svg viewBox="0 0 24 24"><path d="M5 9h11v4.5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 10.5h1.5a2.2 2.2 0 0 1 0 4.4H16"/><path d="M9 3.5c-.8 1 .8 1.8 0 3M12.5 3.5c-.8 1 .8 1.8 0 3"/><path d="M4 21h14"/></svg>',
+  microwave: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="5.5" y="8" width="9" height="8" rx="1"/><path d="M17.5 9h1M17.5 12h1M17.5 15h1"/></svg>',
+  oven: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h16"/><rect x="7" y="11" width="10" height="6.5" rx="1"/><path d="M8 5.5h.01M12 5.5h.01M16 5.5h.01"/></svg>',
+  slowcooker: '<svg viewBox="0 0 24 24"><path d="M4.5 11h15v5a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4z"/><path d="M5.5 11a6.5 3 0 0 1 13 0"/><path d="M12 8V6.5"/><path d="M4.5 13H3M19.5 13H21"/></svg>',
+  bread: '<svg viewBox="0 0 24 24"><path d="M6 20v-9a3.5 3.5 0 0 1 0-7h12a3.5 3.5 0 0 1 0 7v9z"/><path d="M10 9.5l1.5-2M13 11l1.5-2"/></svg>',
+  ev: '<svg viewBox="0 0 24 24"><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3.5 21h13"/><path d="M10.5 7l-2 4h3l-2 4"/><path d="M15 9h1.5a1.5 1.5 0 0 1 1.5 1.5V16a1.5 1.5 0 0 0 3 0V8l-2-2"/></svg>',
+  plug: '<svg viewBox="0 0 24 24"><path d="M9 3v4M15 3v4"/><path d="M6.5 7h11v3.5a5.5 5.5 0 0 1-11 0z"/><path d="M12 16v5"/></svg>',
+  fan: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M12 10.4c0-3.5.7-6.4 3-6.4 2.4 0 2.6 3.6-3 6.4zM13.6 12c3.5 0 6.4.7 6.4 3 0 2.4-3.6 2.6-6.4-3zM12 13.6c0 3.5-.7 6.4-3 6.4-2.4 0-2.6-3.6 3-6.4zM10.4 12C6.9 12 4 11.3 4 9c0-2.4 3.6-2.6 6.4 3z"/></svg>',
+  leaf: '<svg viewBox="0 0 24 24"><path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14"/><path d="M5 19l7-7"/></svg>',
+  blind: '<svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="3" rx="1"/><path d="M5 9.5h14M5 12.5h14M5 15.5h14"/><path d="M12 6.5v12"/></svg>',
+  printer: '<svg viewBox="0 0 24 24"><path d="M7 9V4h10v5"/><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M7 14h10v6H7z"/></svg>',
+  garage: '<svg viewBox="0 0 24 24"><path d="M3 20.5V9.2L12 4l9 5.2v11.3"/><path d="M6.5 20.5v-8h11v8"/><path d="M6.5 15h11"/><path d="M6.5 17.6h11"/></svg>',
+};
+// Sized from the screensaver itself (container units), so the same screens fit over the artwork, a phone
+// held either way, a tablet and a wall screen
+const CROW_MEDIA_SCR_CSS = `
+.cs-scr { position: absolute; inset: 0; overflow: hidden; container-type: size; color: #fff;
+  font-family: var(--cs-font, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif); -webkit-font-smoothing: antialiased; }
+.cs-sp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.cs-sp.cs-move { transition: transform 0.7s cubic-bezier(.22,.8,.24,1); }
+.cs-slab { font-size: max(9px, 2.1cqmin); font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; opacity: 0.75; }
+.cs-st1 { font-size: max(14px, 6cqmin); font-weight: 700; line-height: 1.08; letter-spacing: -0.015em; }
+.cs-st2 { font-size: max(11px, 3cqmin); font-weight: 500; letter-spacing: 0.12em; opacity: 0.85; margin-top: 1cqmin; }
+.cs-scorner { position: absolute; top: calc(max(12px, 4.5cqmin) + env(safe-area-inset-top, 0px)); left: max(14px, 5cqmin); right: max(14px, 5cqmin);
+  display: flex; justify-content: space-between; gap: 4cqmin; font-size: max(9px, 2cqmin); font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.8; z-index: 3; pointer-events: none; }
+.cs-scorner span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-scorner span:first-child { flex-shrink: 0; max-width: 60%; }
+.cs-scorner span:last-child { text-align: right; }
+.cs-sdots { position: absolute; left: 0; right: 0; bottom: calc(max(12px, 4cqmin) + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; gap: max(5px, 1.2cqmin); z-index: 5; pointer-events: none; }
+.cs-sdots i { width: max(5px, 1.1cqmin); height: max(5px, 1.1cqmin); border-radius: 99px; background: rgba(255,255,255,0.4); transition: width 0.4s ease, background 0.4s ease; }
+.cs-sdots i.on { width: max(16px, 3.6cqmin); background: #fff; }
+.cs-sp-week ~ .cs-sdots i, .cs-sp-open ~ .cs-sdots i { background: rgba(255,255,255,0.45); }
+
+/* the time */
+.cs-stime { text-align: center; }
+.cs-stime .t { font-size: min(21cqw, 40cqh); font-weight: 200; line-height: 1; letter-spacing: -0.04em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cs-scolon { animation: cs-sblink 2s steps(1) infinite; }
+@keyframes cs-sblink { 50% { opacity: 0.25; } }
+.cs-sampm { font-size: 0.36em; font-weight: 400; letter-spacing: 0.04em; margin-left: 0.12em; }
+.cs-stime .d { font-size: max(12px, 3.6cqmin); letter-spacing: 0.35em; text-transform: uppercase; margin-top: 2.4cqmin; opacity: 0.9; }
+
+/* today */
+.cs-sdials { display: flex; gap: 5cqw; align-items: center; justify-content: center; }
+.cs-sdial { position: relative; width: min(28cqw, 40cqh); aspect-ratio: 1; }
+.cs-sdial svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.cs-sdial .trk { fill: none; stroke: rgba(255,255,255,0.2); stroke-width: 6; }
+.cs-sdial .val { fill: none; stroke: #fff; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 0 999; transition: stroke-dasharray 1.6s cubic-bezier(.2,.8,.2,1); }
+.cs-sdial .in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.cs-sdial .n { font-size: max(16px, 8cqmin); font-weight: 300; font-variant-numeric: tabular-nums; }
+.cs-sdial .cs-slab { font-size: max(8px, 1.6cqmin); margin-top: 0.8cqmin; letter-spacing: 0.22em; max-width: 80%; }
+.cs-spills { position: absolute; left: 0; right: 0; bottom: calc(14cqmin + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; justify-content: center; gap: 1.4cqmin 4.4cqmin; padding: 0 5cqmin; }
+.cs-spills > div { display: flex; align-items: center; gap: 1.2cqmin; font-size: max(9px, 1.8cqmin); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.55; transition: opacity 0.4s ease; }
+.cs-spills > div::before { content: ''; width: max(6px, 1.2cqmin); height: max(6px, 1.2cqmin); border-radius: 50%; box-shadow: inset 0 0 0 max(1.5px, 0.3cqmin) #fff; transition: background 0.4s ease; }
+.cs-spills > div.on { opacity: 1; }
+.cs-spills > div.on::before { background: #fff; }
+
+/* up next */
+.cs-stiles { display: flex; gap: 4cqw; align-items: flex-end; justify-content: center; padding: 0 5cqw; }
+.cs-stile { width: min(24cqw, 40cqh); min-width: 0; opacity: 0; transform: translateX(30cqw); }
+.cs-stile:first-child { width: min(32cqw, 52cqh); }
+.cs-in .cs-stile { animation: cs-sin 1.1s cubic-bezier(.2,.8,.2,1) forwards; }
+@keyframes cs-sin { to { opacity: 1; transform: none; } }
+.cs-stile .cs-slab { margin-bottom: 1.6cqmin; }
+.cs-stile .sq { width: 100%; aspect-ratio: 1; border-radius: 3cqmin; overflow: hidden; background: rgba(0,0,0,0.14); box-shadow: 0 2cqmin 6cqmin rgba(90,60,0,0.25); }
+.cs-stile .sq img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cs-stile .cs-st1 { font-size: max(12px, 3.6cqmin); margin-top: 2cqmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-stile .cs-st2 { font-size: max(10px, 2.1cqmin); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* the lyrics */
+.cs-slyr { position: absolute; inset: 0; overflow: hidden; text-align: center;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 12%, #000 30%, #000 68%, transparent 86%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, transparent 12%, #000 30%, #000 68%, transparent 86%, transparent 100%); }
+.cs-slyrw { padding: 0 8cqw; transition: transform 0.9s cubic-bezier(.22,.8,.24,1); }
+.cs-slyrw .ln { font-size: max(18px, 7cqmin); font-weight: 800; line-height: 1.15; letter-spacing: -0.015em; padding: 1.8cqmin 0; opacity: 0.32;
+  transform: scale(0.9); transform-origin: center; transition: opacity 0.6s ease, transform 0.6s ease; }
+.cs-slyrw .ln.on { opacity: 1; transform: none; }
+.cs-slyrw .ln.past { opacity: 0.18; }
+.cs-slyrw .ln.gap { font-size: max(14px, 4cqmin); letter-spacing: 0.2em; }
+
+
+/* doors and windows */
+.cs-sopen { display: flex; flex-direction: column; align-items: center; gap: 5cqh; width: 100%; padding: 0 5cqw; box-sizing: border-box; }
+.cs-scount { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1.4cqmin; }
+.cs-scount b { font-size: min(18cqw, 19cqh); font-weight: 200; line-height: 1; }
+.cs-scount span { font-size: max(12px, 4cqmin); font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; }
+.cs-sotiles { display: flex; flex-direction: column; width: min(84cqw, 1000px); }
+.cs-sot { display: flex; align-items: center; gap: 3.4cqmin; padding: 2.4cqmin 0.4cqmin; min-width: 0; opacity: 0; transform: translateY(3cqmin); }
+.cs-sot + .cs-sot { box-shadow: 0 -1px 0 rgba(255,255,255,0.35); }
+.cs-in .cs-sot { animation: cs-sin 0.9s cubic-bezier(.2,.8,.2,1) forwards; }
+.cs-sot:nth-child(2) { animation-delay: 0.12s; } .cs-sot:nth-child(3) { animation-delay: 0.24s; } .cs-sot:nth-child(4) { animation-delay: 0.36s; } .cs-sot:nth-child(5) { animation-delay: 0.48s; } .cs-sot:nth-child(6) { animation-delay: 0.6s; }
+.cs-sot .tx { min-width: 0; flex: 1; }
+.cs-sot .dur { flex-shrink: 0; text-align: right; font-size: max(11px, 2.8cqmin); font-weight: 500; letter-spacing: 0.06em; opacity: 0.9; font-variant-numeric: tabular-nums; }
+.cs-sot .cs-st1 { font-size: max(14px, 4.4cqmin); margin-top: 0.6cqmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-sot .cs-slab { font-size: max(8px, 1.7cqmin); }
+/* the icons: line drawings in white */
+.cs-sic { width: max(26px, 6.4cqmin); height: max(26px, 6.4cqmin); flex-shrink: 0; }
+.cs-sic svg { width: 100%; height: 100%; display: block; fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+
+/* occupancy: each room in a list, its dot lit while someone's in it */
+.cs-smap { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(36cqw, 520px), 1fr)); column-gap: 7cqw; width: 80cqw; max-height: 74cqh; }
+.cs-smap > div { display: flex; align-items: center; gap: 2.4cqmin; padding: 2.8cqmin 0.2cqmin; min-width: 0; box-shadow: 0 1px 0 rgba(255,255,255,0.28); opacity: 0; transform: translateY(2cqmin); }
+.cs-smap > div::before { content: ''; flex-shrink: 0; width: max(9px, 1.8cqmin); height: max(9px, 1.8cqmin); border-radius: 50%; box-shadow: inset 0 0 0 max(1.5px, 0.3cqmin) rgba(255,255,255,0.6); }
+.cs-smap > div .tx { min-width: 0; flex: 1; display: flex; align-items: baseline; justify-content: space-between; gap: 2cqmin; }
+.cs-in .cs-smap > div { animation: cs-sin 0.8s cubic-bezier(.2,.8,.2,1) forwards; }
+.cs-smap .cs-st1 { font-size: max(13px, 4.4cqmin); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.65; }
+.cs-smap small { flex-shrink: 0; font-size: max(8px, 1.9cqmin); font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.6; white-space: nowrap; }
+.cs-smap > div.on .cs-st1, .cs-smap > div.on small { opacity: 1; }
+.cs-smap > div.on::before { background: #ffc35a; box-shadow: 0 0 0 0 rgba(255,195,90,0.6); animation: cs-sglow 2.4s ease-in-out infinite; }
+@keyframes cs-sglow { 50% { box-shadow: 0 0 0 1cqmin rgba(255,195,90,0.22); } }
+
+/* lists (lights, rooms, today's calendar): thin lines between rows, like the full-screen panels */
+.cs-scol { display: flex; flex-direction: column; align-items: center; gap: 4.5cqh; width: 100%; padding: 0 5cqw; box-sizing: border-box; }
+.cs-slist { display: flex; flex-direction: column; width: min(84cqw, 1000px); }
+.cs-srow { display: flex; align-items: center; gap: 3.2cqmin; padding: 2.2cqmin 0.4cqmin; min-width: 0; opacity: 0; transform: translateY(3cqmin); }
+.cs-in .cs-srow { animation: cs-sin 0.9s cubic-bezier(.2,.8,.2,1) forwards; }
+.cs-srow:nth-child(2) { animation-delay: 0.1s; } .cs-srow:nth-child(3) { animation-delay: 0.2s; } .cs-srow:nth-child(4) { animation-delay: 0.3s; } .cs-srow:nth-child(5) { animation-delay: 0.4s; } .cs-srow:nth-child(6) { animation-delay: 0.5s; } .cs-srow:nth-child(7) { animation-delay: 0.6s; }
+.cs-srow + .cs-srow { box-shadow: 0 -1px 0 rgba(255,255,255,0.32); }
+.cs-srow .tx { flex: 1; min-width: 0; }
+.cs-srow .cs-st1 { font-size: max(14px, 4.2cqmin); margin-top: 0.5cqmin; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-srow .cs-slab { font-size: max(8px, 1.7cqmin); min-height: 1em; }
+.cs-srow .rt { flex-shrink: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.cs-srow .rt b { display: block; font-size: max(16px, 5cqmin); font-weight: 300; }
+.cs-srow .rt small { display: block; font-size: max(9px, 1.8cqmin); font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.75; margin-top: 0.4cqmin; }
+.cs-srow .cs-sic { width: max(22px, 5.4cqmin); height: max(22px, 5.4cqmin); }
+.cs-sbar { width: max(60px, 14cqw); height: max(3px, 0.6cqmin); border-radius: 99px; background: rgba(255,255,255,0.25); margin: 1cqmin 0 0 auto; overflow: hidden; }
+.cs-sbar i { display: block; height: 100%; background: #ffd36b; border-radius: 99px; transition: width 0.8s ease; }
+/* any list that can grow: kept within the screen. Two columns on a wide screen when it's long (read down
+   each column), closer rows when it's very long, and a slow scroll up and back when it still doesn't fit */
+.cs-sclip { position: relative; display: flex; flex-direction: column; align-items: center; max-height: 70cqh; overflow-x: hidden; overflow-y: auto; width: 100%;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: none; }
+.cs-sclip::-webkit-scrollbar { display: none; }
+.cs-sp-lights .cs-sclip, .cs-sp-open .cs-sclip, .cs-sp-shopping .cs-sclip, .cs-sp-todo .cs-sclip { max-height: 46cqh; }
+.cs-scol { max-height: calc(100cqh - max(64px, 22cqmin)); }
+.cs-sp-calendar .cs-sclip { max-height: 62cqh; }
+.cs-sclip.cs-sft { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%); mask-image: linear-gradient(to bottom, transparent 0, #000 7%); }
+.cs-sclip.cs-sfb { -webkit-mask-image: linear-gradient(to bottom, #000 93%, transparent 100%); mask-image: linear-gradient(to bottom, #000 93%, transparent 100%); }
+.cs-sclip.cs-sft.cs-sfb { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%); }
+.cs-sclip > [data-fit] { flex-shrink: 0; }
+.cs-slist[data-size="many"], .cs-slist[data-size="lots"], .cs-sotiles[data-size="many"], .cs-sotiles[data-size="lots"] {
+  display: grid; grid-template-rows: repeat(var(--rows, 4), auto); grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: 6cqw; width: 90cqw; }
+.cs-slist[data-size] > .cs-srow, .cs-sotiles[data-size] > .cs-sot { box-shadow: none; }
+.cs-slist[data-size="many"] > *, .cs-slist[data-size="lots"] > *, .cs-sotiles[data-size="many"] > *, .cs-sotiles[data-size="lots"] > * { box-shadow: 0 1px 0 rgba(255,255,255,0.3) !important; }
+[data-size="lots"] > .cs-srow, [data-size="lots"] > .cs-sot { padding-top: 1.3cqmin; padding-bottom: 1.3cqmin; }
+[data-size="lots"] .cs-st1 { font-size: max(12px, 3.2cqmin) !important; }
+[data-size="lots"] .rt b, [data-size="lots"] .dur { font-size: max(12px, 3.4cqmin) !important; }
+.cs-smap[data-size="lots"] > div { padding-top: 1.6cqmin; padding-bottom: 1.6cqmin; }
+/* timers: the ring empties as the time runs down */
+.cs-stimers .cs-sdial .n { font-variant-numeric: tabular-nums; }
+/* security: the alarm large, then every lock; unlocked ones lit */
+.cs-salarm { display: flex; align-items: center; gap: 3cqmin; }
+.cs-salarm[hidden] { display: none; }
+.cs-salarm .cs-sic { width: max(36px, 10cqmin); height: max(36px, 10cqmin); }
+.cs-sshield.on svg { fill: rgba(255,255,255,0.22); }
+.cs-sshield.alert svg { stroke: #ffc35a; fill: rgba(255,195,90,0.25); }
+.cs-sbig { font-size: max(22px, 8cqmin); font-weight: 200; line-height: 1.05; margin-top: 0.6cqmin; }
+.cs-srow.cs-shot .rt b { color: #ffd36b; font-weight: 500; }
+.cs-srow.cs-sdone { opacity: 0.62; }
+.cs-srow.cs-shot .cs-sic svg { stroke: #ffd36b; }
+.cs-srow .rt small:only-child { margin-top: 0; }
+.cs-shead { font-size: max(9px, 1.9cqmin); font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; opacity: 0.7; padding: 3cqmin 0.4cqmin 1cqmin; }
+.cs-slist > .cs-shead:first-child, .cs-sth > .cs-shead:first-child { padding-top: 0; }
+.cs-slist[data-grouped] { display: flex !important; flex-direction: column; }
+.cs-slist[data-grouped] > .cs-shead + .cs-srow { box-shadow: none !important; }
+.cs-sth[data-grouped] { display: grid; grid-template-columns: repeat(var(--hc, 3), minmax(0, 1fr)); gap: 2.4cqh 4cqw; width: 86cqw; }
+.cs-sth[data-grouped] > .cs-shead { grid-column: 1 / -1; text-align: left; padding: 1.4cqh 0 0; }
+.cs-sth[data-grouped][data-n="many"] { --hc: 4; }
+.cs-sth[data-grouped] .cs-sthd .cs-sdial { width: min(17cqw, 21cqh); }
+.cs-sth[data-grouped][data-n="many"] .cs-sthd .cs-sdial { width: min(13cqw, 17cqh); }
+.cs-stemp svg { stroke: var(--tc, #fff) !important; }
+.cs-sthd.off .cs-sdial .n { opacity: 0.6; }
+/* cameras and doorbells: three to a row (one or two, larger, when there are only that many) */
+.cs-scams { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2cqmin; width: min(90cqw, 128cqh); }
+/* fewer cameras, larger pictures: each as large as fits the screen */
+.cs-scams[data-n="3"] { width: min(94cqw, 360cqh); }
+.cs-scams[data-n="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(90cqw, 124cqh); }
+.cs-scams[data-n="6"] { width: min(94cqw, 186cqh); }
+.cs-sp-cameras .cs-sclip, .cs-sp-doorbell .cs-sclip { max-height: 76cqh; }
+.cs-scams[data-n="1"] { grid-template-columns: 1fr; width: min(86cqw, 126cqh); }
+.cs-scams[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(94cqw, 250cqh); }
+.cs-scam { position: relative; aspect-ratio: 16 / 9; border-radius: 1.6cqmin; overflow: hidden; background: rgba(0,0,0,0.25); }
+.cs-scam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cs-scam.cs-snopic { display: flex; align-items: center; justify-content: center; }
+.cs-scam.cs-snopic .cs-sic { width: 22%; height: auto; aspect-ratio: 1; }
+.cs-scam.cs-srang { box-shadow: 0 0 0 max(2px, 0.5cqmin) #fff; }
+.cs-scl { position: absolute; left: 1.6cqmin; right: 1.6cqmin; bottom: 1.2cqmin; display: flex; justify-content: space-between; align-items: flex-end; gap: 1.6cqmin; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
+.cs-scl b { font-size: max(11px, 2.4cqmin); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cs-scl span { font-size: max(8px, 1.5cqmin); letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.9; flex-shrink: 0; }
+.cs-scams[data-n="1"] .cs-scl b, .cs-scams[data-n="2"] .cs-scl b { font-size: max(13px, 3.4cqmin); }
+.cs-scams[data-n="1"] .cs-scl span, .cs-scams[data-n="2"] .cs-scl span { font-size: max(9px, 2cqmin); }
+.cs-scams[data-n="1"] .cs-scl, .cs-scams[data-n="2"] .cs-scl { left: 2.4cqmin; right: 2.4cqmin; bottom: 2cqmin; }
+/* heating: a dial for each thermostat */
+.cs-sth { display: flex; gap: 6cqw; justify-content: center; }
+.cs-sth[data-n="some"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4cqh 4cqw; width: 84cqw; }
+.cs-sth[data-n="many"] { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3cqh 3cqw; width: 88cqw; }
+.cs-sth[data-n="some"] .cs-sthd .cs-sdial { width: min(17cqw, 21cqh); }
+.cs-sth[data-n="many"] .cs-sthd .cs-sdial { width: min(13cqw, 17cqh); }
+.cs-sth[data-n="some"] .cs-sdial .n, .cs-sth[data-n="many"] .cs-sdial .n { font-size: max(15px, 5.4cqmin); }
+.cs-sth[data-n="many"] .cs-sthd .nm { font-size: max(11px, 2.6cqmin); }
+.cs-sthd { display: flex; flex-direction: column; align-items: center; gap: 2.4cqmin; text-align: center; }
+.cs-sthd .cs-sdial { width: min(26cqw, 44cqh); }
+.cs-sthd.heat .cs-sdial .val { stroke: #ffb36b; }
+.cs-sthd.cool .cs-sdial .val { stroke: #8fd3ff; }
+.cs-sthd.idle .cs-sdial .val { stroke: rgba(255,255,255,0.55); }
+.cs-sthd .cs-sdial .n { font-size: max(18px, 8.4cqmin); font-weight: 200; }
+.cs-sthd .nm { font-size: max(13px, 3.6cqmin); font-weight: 700; }
+.cs-sthd .st { font-size: max(9px, 1.9cqmin); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; opacity: 0.85; margin-top: 0.6cqmin; }
+  font-size: min(7cqw, 10cqh); font-weight: 300; box-shadow: inset 0 0 0 max(2px, 0.5cqmin) #fff; }
+/* today's calendar */
+.cs-ssoon { font-size: max(9px, 1.9cqmin); font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; min-height: 1em; }
+.cs-scal .tm { width: max(72px, 17cqmin); flex-shrink: 0; white-space: nowrap; font-size: max(13px, 3.4cqmin); font-weight: 300; font-variant-numeric: tabular-nums; }
+.cs-scal .tm small { display: block; font-size: max(8px, 1.6cqmin); font-weight: 600; letter-spacing: 0.12em; opacity: 0.7; margin-top: 0.4cqmin; }
+.cs-scal .cd { width: max(3px, 0.6cqmin); align-self: stretch; border-radius: 99px; background: #fff; opacity: 0.7; flex-shrink: 0; }
+.cs-scal .now .cs-st1 { font-size: max(16px, 5.4cqmin); }
+.cs-scal .now .cd { opacity: 1; }
+
+/* the numbers inside every ring are sized from the ring itself, so they fit however small the rings get
+   (a phone on its side, many thermostats, over the artwork) */
+.cs-sdial { container-type: inline-size; }
+.cs-sdial .in .n { font-size: 19cqi !important; letter-spacing: -0.02em; white-space: nowrap; }
+.cs-sdial .in .cs-slab { font-size: max(6px, 6cqi) !important; letter-spacing: 0.18em; margin-top: 1.5cqi; }
+/* every dial's number and label are sized from the dial itself, so they never crowd the ring however small
+   it gets (a phone on its side), and a dial never gets too small to read */
+.cs-scr .cs-sdial { container-type: inline-size; min-width: 92px; }
+.cs-scr .cs-sdial .n { font-size: 21cqw !important; letter-spacing: -0.02em; line-height: 1; }
+.cs-scr .cs-stimers .cs-sdial .n { font-size: 17cqw !important; }
+.cs-scr .cs-sdial .cs-slab { font-size: max(7px, 6.5cqw) !important; letter-spacing: 0.16em; margin-top: 3cqw; }
+/* settled: a row that's redrawn because a value changed appears at once, without its entrance */
+.cs-settled .cs-srow, .cs-settled .cs-sot, .cs-settled .cs-smap > div, .cs-settled .cs-stile { animation: none !important; opacity: 1 !important; transform: none !important; }
+.cs-settled .cs-sdial .val { transition: none; }
+/* taller than wide (a phone held upright, or over a square of artwork): the screens stack */
+@container (max-aspect-ratio: 5/6) {
+  .cs-scams, .cs-scams[data-n] { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 90cqw; }
+  .cs-scams[data-n="1"], .cs-scams[data-n="2"] { grid-template-columns: 1fr; width: 90cqw; }
+  .cs-slist[data-size="many"], .cs-slist[data-size="lots"], .cs-sotiles[data-size="many"], .cs-sotiles[data-size="lots"] { display: flex; flex-direction: column; width: 88cqw; }
+  .cs-slist[data-size] > * + *, .cs-sotiles[data-size] > * + * { box-shadow: 0 -1px 0 rgba(255,255,255,0.3) !important; }
+  .cs-slist[data-size] > *, .cs-sotiles[data-size] > * { box-shadow: none !important; }
+  .cs-slist[data-size] > * + *, .cs-sotiles[data-size] > * + * { box-shadow: 0 -1px 0 rgba(255,255,255,0.3) !important; }
+  .cs-sclip { max-height: 74cqh; }
+  .cs-sp-lights .cs-sclip, .cs-sp-open .cs-sclip, .cs-sp-shopping .cs-sclip, .cs-sp-todo .cs-sclip { max-height: 52cqh; }
+  .cs-sth { flex-direction: column; gap: 3.4cqh; align-items: flex-start; max-width: 90cqw; }
+  .cs-sthd .tx { min-width: 0; }
+  .cs-sthd .nm { white-space: normal; }
+  .cs-sthd { flex-direction: row; gap: 5cqw; text-align: left; }
+  .cs-sthd .cs-sdial { width: 34cqw; }
+  .cs-sth[data-grouped] { --hc: 2 !important; width: 88cqw; }
+  .cs-sth[data-grouped] .cs-sthd { flex-direction: column; text-align: center; gap: 1.6cqmin; }
+  .cs-sth[data-grouped] .cs-sthd .cs-sdial { width: 32cqw !important; }
+  .cs-sth[data-n="some"], .cs-sth[data-n="many"] { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4cqh 6cqw; width: 88cqw; max-width: none; }
+  .cs-sth[data-n="some"] .cs-sthd, .cs-sth[data-n="many"] .cs-sthd { flex-direction: column; text-align: center; gap: 1.6cqmin; }
+  .cs-sth[data-n="some"] .cs-sthd .cs-sdial { width: 32cqw; }
+  .cs-sth[data-n="many"] .cs-sthd .cs-sdial { width: 24cqw; }
+  .cs-slist { width: 88cqw; }
+  .cs-stime .t { font-size: 24cqw; }
+  .cs-sdials { flex-direction: column; gap: 3cqh; }
+  .cs-sdial { width: min(46cqw, 24cqh); }
+  .cs-sdial .n { font-size: max(16px, 7cqmin); }
+  .cs-stiles { flex-direction: column; align-items: stretch; gap: 2.6cqh; width: 88cqw; }
+  .cs-stile, .cs-stile:first-child { width: auto; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto; column-gap: 4cqw; align-items: center; transform: translateX(40cqw); }
+  .cs-stile .sq { grid-row: 1 / 4; width: 22cqh; max-width: 34cqw; }
+  .cs-stile:first-child .sq { width: 26cqh; max-width: 40cqw; }
+  .cs-stile .cs-slab { margin: 0; align-self: end; }
+  .cs-stile .cs-st1 { margin-top: 0.6cqmin; font-size: max(13px, 5cqmin); }
+  .cs-sotiles { width: 86cqw; }
+  .cs-smap { grid-template-columns: 1fr; }
+}
+/* a small box (the screensaver over the artwork): fewer things, larger */
+@container (max-height: 520px) {
+  .cs-scol { gap: 3cqh; }
+  .cs-sotiles { width: 84cqw; }
+  .cs-sopen { gap: 3cqh; }
+  .cs-stile:nth-child(3) { display: none; }
+}
+.cs-still *, .cs-still *::before, .cs-still *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; }
+`;
+
 Object.assign(K.kit, { CrowMediaAtmCanvas, CrowMediaClockDrawer });
 
 Object.assign(K.Card.prototype, {
@@ -1680,7 +1983,7 @@ Object.assign(K.Card.prototype, {
       this._suppressArtTapTimer = setTimeout(() => { this._suppressArtTap = false; }, 600);
       this._saverStop();
     };
-    el.addEventListener('click', (e) => { if (el._lpFired) { e.preventDefault(); e.stopPropagation(); return; } close(e); });
+    el.addEventListener('click', (e) => { if (el._lpFired || (el._swiped && Date.now() - el._swiped < 700)) { e.preventDefault(); e.stopPropagation(); return; } close(e); });
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     // Long press on an album cover (Album Wall) opens the Info panel for it
     let lpT = null, lpX = 0, lpY = 0;
@@ -1715,6 +2018,7 @@ Object.assign(K.Card.prototype, {
     this._saverClockT = setInterval(() => this._saverClock(), 5000);
     requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
   },
+
 
   // Sized and placed exactly over the artwork
   _saverPlace() {
@@ -1761,6 +2065,7 @@ Object.assign(K.Card.prototype, {
   },
 
   _saverClearStyle() {
+    if (this._scrOff) { try { this._scrOff(); } catch (_) {} this._scrOff = null; }
     clearInterval(this._saverMoveT); this._saverMoveT = null;
     clearInterval(this._saverFxT); this._saverFxT = null;
     if (this._saverRaf) { cancelAnimationFrame(this._saverRaf); this._saverRaf = null; }
@@ -1789,9 +2094,10 @@ Object.assign(K.Card.prototype, {
     else if (style === 'words') this._saverWordClock(stage);
     else if (style === 'fire') this._saverFireplace(stage);
     else if (style === 'ocean') this._saverOcean(stage);
+    else if (style === 'screens') this._saverScreens(stage);
     else this._saverWall(stage);
     // styles that already show the time don't get the small clock
-    if (!['clock', 'flip', 'analog', 'words'].includes(style) && this._config?.screensaver_clock !== false) {
+    if (!['clock', 'flip', 'analog', 'words', 'screens'].includes(style) && this._config?.screensaver_clock !== false) {
       const m = document.createElement('div');
       m.className = 'cs-mini';
       el.appendChild(m);
@@ -3306,7 +3612,1518 @@ Object.assign(K.Card.prototype, {
       ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
       this._saverGrain(ctx, W, H, 0.03);
     });
-  }
+  },
+
+  // ── Info Screens: a set of full-colour screens, one at a time, that change by themselves and can be swiped
+  // back and forth. Each has one plain colour and one large visual: the time, what's playing, a spectrum,
+  // today's listening, up next, the lyrics, the weather (the same animated sky as Clock & Weather), the week,
+  // and the doors and windows that are open (found by themselves: every door, window, garage door and opening
+  // sensor in Home Assistant, by room). A screen with nothing to show is passed over. ──
+  _saverScreens(stage) {
+    const el = this._saverEl;
+    if (!el) return;
+    const esc = t => this._cmpEsc(t);
+    const still = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const root = document.createElement('div');
+    root.className = 'cs-scr' + (still ? ' cs-still' : '');
+    root.innerHTML = '<style>' + CROW_MEDIA_SCR_CSS + '</style><div class="cs-sdots"></div>';
+    stage.appendChild(root);
+    const dotsEl = root.querySelector('.cs-sdots');
+    const alive = () => this._saverEl === el && root.isConnected;
+    const S = this._scrDefs();
+    const picked = () => {
+      const want = Array.isArray(this._config?.screensaver_screens) ? this._config.screensaver_screens : null;
+      const keys = CROW_MEDIA_SCR_KEYS.filter(k => (want && want.length) ? want.includes(k) : !CROW_MEDIA_SCR_OFF.includes(k));
+      const ok = keys.filter(k => { try { return S[k].has(); } catch (_) { return false; } });
+      return ok.length ? ok : ['time'];
+    };
+    let cur = null, pane = null, upd = null;
+    // the fades at the top and bottom of a list only show where there's more to scroll to
+    const edges = (clip) => {
+      const max = clip.scrollHeight - clip.clientHeight, y = clip.scrollTop + (clip._auto?.tf || 0);
+      clip.classList.toggle('cs-sft', max > 4 && y > 2);
+      clip.classList.toggle('cs-sfb', max > 4 && y < max - 2);
+    };
+    const handBack = (clip) => {
+      const a = clip._auto, list = clip.firstElementChild;
+      if (!a || !a.tf) return;
+      const y = a.tf;
+      a.tf = 0;
+      if (list) list.style.transform = '';
+      a.self = true;
+      clip.scrollTop = Math.round(y);
+    };
+    // the slow scroll of a list nobody is touching: down, a pause, back up, a pause
+    let driftRaf = 0, driftAt = 0;
+    const drift = (t) => {
+      driftRaf = 0;
+      if (!alive()) return;
+      const dt = driftAt ? Math.min(0.1, (t - driftAt) / 1000) : 0;
+      driftAt = t;
+      const now = Date.now();
+      pane?.querySelectorAll('.cs-sclip').forEach(clip => {
+        const a = clip._auto, list = clip.firstElementChild, max = clip.scrollHeight - clip.clientHeight;
+        if (!a || !list || max <= 4 || now < a.wait) return;
+        // carries on from wherever it was left (by hand or by itself)
+        if (clip.scrollTop) { a.pos = clip.scrollTop; a.self = true; clip.scrollTop = 0; }
+        a.pos = Math.max(0, Math.min(max, a.pos + a.dir * (a.dir > 0 ? 24 : 42) * dt));
+        a.tf = a.pos;
+        list.style.transform = 'translate3d(0,' + (-a.pos).toFixed(2) + 'px,0)';
+        edges(clip);
+        if (a.pos >= max) { a.dir = -1; a.wait = now + 3500; a.endAt = a.endAt || now; }
+        else if (a.pos <= 0) { a.dir = 1; a.wait = now + 3500; }
+      });
+      driftRaf = requestAnimationFrame(drift);
+    };
+    driftRaf = requestAnimationFrame(drift);
+    const fit = (pn) => {
+      if (!pn) return;
+      pn.querySelectorAll('[data-fit]').forEach(list => {
+        const n = list.children.length;
+        const size = n > 12 ? 'lots' : n > 6 ? 'many' : '';
+        if ((list.dataset.size || '') !== size) list.dataset.size = size;
+        const rows = String(Math.ceil(n / 2));
+        if (list.style.getPropertyValue('--rows') !== rows) list.style.setProperty('--rows', rows);
+        let clip = list.parentElement;
+        if (!clip?.classList.contains('cs-sclip')) {
+          clip = document.createElement('div');
+          clip.className = 'cs-sclip';
+          list.replaceWith(clip);
+          clip.appendChild(list);
+        }
+        // more than fits: it can be scrolled, and scrolls slowly by itself when left alone
+        if (!clip._auto) {
+          clip._auto = { dir: 1, wait: Date.now() + 3000, pos: 0 };
+          const held = () => { handBack(clip); clip._auto.wait = Date.now() + 8000; clip._auto.pos = clip.scrollTop; };
+          clip.addEventListener('scroll', () => {
+            edges(clip);
+            if (clip.scrollTop + (clip._auto.tf || 0) >= clip.scrollHeight - clip.clientHeight - 2) clip._auto.endAt = clip._auto.endAt || Date.now();
+            if (!clip._auto.self) held();
+            clip._auto.self = false;
+          }, { passive: true });
+          ['touchstart', 'wheel', 'pointerdown'].forEach(ev => clip.addEventListener(ev, held, { passive: true }));
+        }
+        clip.classList.toggle('cs-sover', clip.scrollHeight - clip.clientHeight > 4);
+        edges(clip);
+      });
+    };
+    const dots = (list) => {
+      const html = list.map(k => '<i' + (k === cur ? ' class="on"' : '') + '></i>').join('');
+      if (dotsEl._h !== html) { dotsEl._h = html; dotsEl.innerHTML = html; }
+    };
+    const show = (key, dir) => {
+      if (!alive()) return;
+      const def = S[key] || S.time;
+      const next = document.createElement('div');
+      next.className = 'cs-sp cs-sp-' + key;
+      next.style.background = def.bg;
+      if (def.ink) next.style.color = def.ink;
+      root.insertBefore(next, dotsEl);
+      try { this._scrSkyStop?.(); } catch (_) {}
+      let u = null;
+      try { u = def.build(next); } catch (e) { console.warn('[crow-media] screen', key, e); }
+      const old = pane;
+      cur = key; pane = next; upd = u;
+      if (old) {
+        if (still || !dir) { old.remove(); }
+        else {
+          next.style.transform = 'translateX(' + (dir > 0 ? 100 : -100) + '%)';
+          next.getBoundingClientRect();
+          next.classList.add('cs-move'); old.classList.add('cs-move');
+          next.style.transform = 'translateX(0)';
+          old.style.transform = 'translateX(' + (dir > 0 ? -100 : 100) + '%)';
+          setTimeout(() => old.remove(), 750);
+        }
+      }
+      // entrance animations start once the screen is in place
+      requestAnimationFrame(() => next.classList.add('cs-in'));
+      setTimeout(() => next.classList.add('cs-settled'), 1600);
+      try { upd?.(); } catch (_) {}
+      requestAnimationFrame(() => fit(next));
+      dots(picked());
+    };
+    const step = (dir) => {
+      const list = picked();
+      let i = list.indexOf(cur);
+      if (i === -1) i = dir > 0 ? -1 : 0;
+      const key = list[(i + dir + list.length) % list.length];
+      if (key === cur && list.length === 1) { dots(list); return; }
+      show(key, dir);
+      restart();
+    };
+    // changes by itself every so often (the editor's Change Every; Never leaves it to swiping)
+    const canSwipe = el.classList.contains('cs-full');
+    let autoT = null;
+    const every = () => { const s = Number(this._config?.screensaver_screens_every); return Number.isFinite(s) && s >= 0 && (s > 0 || canSwipe) ? s : 15; };
+    let shownAt = Date.now();
+    const ready = () => {
+      const now = Date.now();
+      if (now - shownAt < every() * 1000) return false;
+      let last = 0;
+      for (const clip of pane?.querySelectorAll('.cs-sclip') || []) {
+        if (clip.scrollHeight - clip.clientHeight <= 4) continue;
+        const end = clip._auto?.endAt;
+        if (!end) return false;
+        last = Math.max(last, end);
+      }
+      return !last || now - last >= 1500;
+    };
+    const restart = () => {
+      clearInterval(autoT); autoT = null;
+      shownAt = Date.now();
+      if (every() > 0) autoT = setInterval(() => { if (alive() && ready()) step(1); }, 250);
+    };
+    // full screen: swipe left or right (or the arrow keys) to change screen. A swipe isn't a tap, so it
+    // doesn't wake the card. Over the artwork the screens just change by themselves.
+    let sx = 0, sy = 0, sid = null;
+    const down = (e) => { if (e.button > 0) return; sid = e.pointerId; sx = e.clientX; sy = e.clientY; };
+    const up = (e) => {
+      if (sid === null || e.pointerId !== sid) return;
+      sid = null;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      el._swiped = Date.now();
+      this._saverActiveAt = Date.now();
+      step(dx < 0 ? 1 : -1);
+    };
+    const key = (e) => {
+      if (!alive() || (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft')) return;
+      e.preventDefault(); e.stopPropagation();
+      el._swiped = Date.now();
+      step(e.key === 'ArrowRight' ? 1 : -1);
+    };
+    const cancel = () => { sid = null; };
+    if (canSwipe) {
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', cancel);
+      document.addEventListener('keydown', key, true);
+    }
+    // the live parts (time, progress, lyrics…) once a second, and a screen that's run out of things to
+    // show (the song ended, the doors were shut) gives way to the next
+    const tick = setInterval(() => {
+      if (!alive()) return;
+      const list = picked();
+      if (cur && !list.includes(cur)) { step(1); return; }
+      dots(list);
+      try { upd?.(); } catch (_) {}
+      fit(pane);
+    }, 1000);
+    const lyrTick = setInterval(() => { if (alive() && cur === 'lyrics') { try { upd?.(); } catch (_) {} } }, 250);
+    this._scrOff = () => {
+      clearInterval(autoT); clearInterval(tick); clearInterval(lyrTick); if (driftRaf) cancelAnimationFrame(driftRaf);
+      el.removeEventListener('pointerdown', down); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', cancel);
+      document.removeEventListener('keydown', key, true);
+      try { this._scrSkyStop?.(); } catch (_) {}
+    };
+    show(picked()[0], 0);
+    restart();
+  },
+
+  // ── The screens ─────────────────────────────────────────────────────────────────────────────────────
+  _scrDefs() {
+    const esc = t => this._cmpEsc(t);
+    const st = () => this._hass?.states?.[this._entity];
+    const attrs = () => st()?.attributes || {};
+    const playing = () => { const s = st()?.state; return (s === 'playing' || s === 'paused' || s === 'buffering') && !!attrs().media_title; };
+    const isMusic = () => playing() && (this._fsKind ? (() => { try { const k = this._fsKind(); return !k || k === 'music'; } catch (_) { return true; } })() : true);
+    const room = () => { try { return this._entityDisplayName?.(this._entity) || attrs().friendly_name || ''; } catch (_) { return attrs().friendly_name || ''; } };
+    const pos = () => {
+      const a = attrs();
+      if (typeof a.media_position !== 'number') return null;
+      let p = a.media_position;
+      if (st()?.state === 'playing' && a.media_position_updated_at) p += (Date.now() - new Date(a.media_position_updated_at).getTime()) / 1000;
+      return Math.max(0, p);
+    };
+    const mmss = s => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+    const corner = (l, r) => '<div class="cs-scorner"><span>' + esc(l || '') + '</span><span>' + esc(r || '') + '</span></div>';
+    const log = () => (this._getListenLogEntries?.() || []).filter(e => (e.mediaType || 'music') === 'music' && e.ts);
+    const dayStart = (d = new Date()) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+    const entryMs = e => e.durationMs > 0 ? Math.min(e.durationMs, 20 * 60000) : 210000;
+    const dur = ms => { const m = Math.round(ms / 60000); return m >= 60 ? Math.floor(m / 60) + 'h ' + String(m % 60).padStart(2, '0') + 'm' : m + 'm'; };
+    const timeParts = () => this._saverTimeParts();
+    const openings = () => this._scrOpenings();
+    const clock = (ms) => {
+      const h24 = this._hass?.locale?.time_format === '24';
+      try { return new Date(ms).toLocaleTimeString(this._hass?.locale?.language || undefined, { hour: h24 ? '2-digit' : 'numeric', minute: '2-digit', hour12: this._hass?.locale?.time_format === '12' ? true : h24 ? false : undefined }); } catch (_) { return ''; }
+    };
+    // when something happened: the time today, else yesterday, the day this week, or the date
+    const when = (ms) => {
+      const d = new Date(ms), t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      const lang = this._hass?.locale?.language || undefined;
+      if (ms >= t0.getTime()) return clock(ms);
+      if (ms >= t0.getTime() - 86400000) return 'Yesterday ' + clock(ms);
+      try { return (ms >= t0.getTime() - 6 * 86400000 ? d.toLocaleDateString(lang, { weekday: 'short' }) : d.toLocaleDateString(lang, { day: 'numeric', month: 'short' })) + ' ' + clock(ms); } catch (_) { return clock(ms); }
+    };
+    // a grid of camera pictures: the tiles stay, and only their pictures are swapped, every ten seconds in full
+    // screen (thirty over the artwork); each tile says when its picture is from, or when its doorbell rang
+    const camGrid = (p, title, get) => {
+      p.innerHTML = corner(title, '') + '<div class="cs-scams" data-fit></div>';
+      const box = p.querySelector('.cs-scams'), c = p.querySelector('.cs-scorner span:last-child');
+      let lastAt = 0;
+      const every = () => (this._saverEl?.classList.contains('cs-full') ? 10000 : 30000);
+      return () => {
+        const K = get();
+        const ids = K.map(k => k.id).join('|');
+        if (box._ids !== ids) {
+          box._ids = ids;
+          box.dataset.n = K.length <= 4 ? String(K.length) : K.length <= 6 ? '6' : 'many';
+          box.innerHTML = K.map(k => '<div class="cs-scam' + (k.pic ? '' : ' cs-snopic') + '" data-id="' + esc(k.id) + '">' + (k.pic ? '<img alt="">' : '<div class="cs-sic">' + CROW_MEDIA_SCR_ICON.bell + '</div>') + '<div class="cs-scl"><b>' + esc(k.name) + '</b><span></span></div></div>').join('');
+          box.querySelectorAll('img').forEach(im => { im.onerror = () => { im.style.visibility = 'hidden'; }; im.onload = () => { im.style.visibility = ''; }; });
+          lastAt = 0;
+        }
+        const now = Date.now();
+        // when the doorbell rang, kept up to the minute
+        K.forEach(k => {
+          const tile = box.querySelector('[data-id="' + CSS.escape(k.id) + '"]');
+          if (!tile) return;
+          tile.classList.toggle('cs-srang', !!k.at);
+          if (k.at) { const m = Math.floor((now - k.at) / 60000); tile.querySelector('span').textContent = m < 1 ? 'Rang just now' : 'Rang ' + m + ' min ago'; }
+        });
+        const rang = K.filter(k => k.at).sort((a, b) => b.at - a.at)[0];
+        if (now - lastAt < every()) { if (rang) c.textContent = 'Rang ' + clock(rang.at); return; }
+        lastAt = now;
+        const t = clock(now);
+        c.textContent = rang ? 'Rang ' + clock(rang.at) : (t ? 'Updated ' + t : '');
+        K.forEach(k => {
+          const tile = box.querySelector('[data-id="' + CSS.escape(k.id) + '"]');
+          if (!tile) return;
+          // a snapshot says when it was taken; a picture that's kept up to date, when it was last fetched
+          if (!k.at) tile.querySelector('span').textContent = k.snap ? (k.taken ? 'Snapshot · ' + when(k.taken) : 'Snapshot') : t;
+          if (k.pic) tile.querySelector('img').src = k.pic + (k.pic.includes('?') ? '&' : '?') + 't=' + lastAt;
+        });
+      };
+    };
+
+    return {
+      // the time and date, large
+      time: { bg: '#3b3fb6', has: () => true, build: (p) => {
+        p.innerHTML = corner(room(), '') + '<div class="cs-stime"><div class="t"></div><div class="d"></div></div>';
+        const t = p.querySelector('.t'), d = p.querySelector('.d'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const tp = timeParts();
+          const html = esc(tp.t).replace(':', '<span class="cs-scolon">:</span>').replace(/\s?(AM|PM)$/i, '<span class="cs-sampm">$1</span>');
+          if (t._h !== html) { t._h = html; t.innerHTML = html; }
+          if (d.textContent !== tp.d) d.textContent = tp.d;
+        };
+      } },
+
+      // today: the volume, songs played and time spent listening, as dials, with what's switched on
+      today: { bg: '#2e8b57', has: () => !!st(), build: (p) => {
+        const dial = (k, lab) => `<div class="cs-sdial" data-k="${k}"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="44"/><circle class="val" cx="50" cy="50" r="44"/></svg><div class="in"><div class="n"></div><div class="cs-slab">${lab}</div></div></div>`;
+        p.innerHTML = corner('', 'Today') + '<div class="cs-sdials">' + dial('vol', 'Volume') + dial('songs', 'Songs today') + dial('time', 'Listening today') + '</div><div class="cs-spills"></div>';
+        const C = 2 * Math.PI * 44;
+        const set = (k, frac, txt) => {
+          const d = p.querySelector('[data-k="' + k + '"]');
+          d.querySelector('.n').textContent = txt;
+          const f = Math.max(0, Math.min(1, frac)), v = d.querySelector('.val');
+          v.style.strokeDasharray = (f * C).toFixed(1) + ' ' + C.toFixed(1);
+          v.style.opacity = f > 0.005 ? '1' : '0';
+        };
+        const pills = p.querySelector('.cs-spills'), c = p.querySelector('.cs-scorner span:first-child');
+        return () => {
+          const a = attrs();
+          const vol = typeof a.volume_level === 'number' ? Math.round(a.volume_level * 100) : null;
+          const today = log().filter(e => e.ts >= dayStart());
+          const ms = today.reduce((s, e) => s + entryMs(e), 0);
+          set('vol', vol === null ? 0 : vol / 100, vol === null ? '–' : String(vol));
+          set('songs', today.length / 40, String(today.length));
+          set('time', ms / (3 * 3600000), dur(ms));
+          const s = st()?.state;
+          const P = [['Playing', s === 'playing'], ['Muted', a.is_volume_muted === true], ['Shuffle', a.shuffle === true], ['Repeat', a.repeat && a.repeat !== 'off'], ['Sleep timer', !!this._sleep]];
+          const html = P.map(([l, on]) => '<div' + (on ? ' class="on"' : '') + '>' + l + '</div>').join('');
+          if (pills._h !== html) { pills._h = html; pills.innerHTML = html; }
+          c.textContent = room();
+        };
+      } },
+
+      // up next: the next few songs in the queue, their artwork sliding in one after another
+      upnext: { bg: '#d9a521', has: () => isMusic() && (this._scrNextFor(this._scrSongKey()) || []).length > 0, build: (p) => {
+        p.innerHTML = corner('Up Next', room()) + '<div class="cs-stiles"></div>';
+        const box = p.querySelector('.cs-stiles');
+        return () => {
+          const list = (this._scrNextFor(this._scrSongKey()) || []).slice(0, 3);
+          const lbl = ['Next', 'Then', 'After'];
+          const html = list.map((x, i) => { const img = this._scrArt(x); return '<div class="cs-stile" style="animation-delay:' + (i * 0.3) + 's"><div class="cs-slab">' + lbl[i] + '</div><div class="sq">' + (img ? '<img alt="" src="' + esc(img) + '" onerror="this.remove()">' : '') + '</div><div class="cs-st1">' + esc(x.title) + '</div><div class="cs-st2">' + esc(x.artist || '') + '</div></div>'; }).join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // the lyrics: every line, gliding up as the song goes, the line being sung large and bright (like the
+      // card's own synced lyrics)
+      lyrics: { bg: '#6b3fa0', has: () => isMusic() && !!this._scrLyrics(), build: (p) => {
+        p.innerHTML = corner('Lyrics', '') + '<div class="cs-slyr"><div class="cs-slyrw"></div></div>';
+        const view = p.querySelector('.cs-slyr'), wrap = p.querySelector('.cs-slyrw'), c = p.querySelector('.cs-scorner span:last-child');
+        let lines = null, at = -2;
+        const place = (smooth) => {
+          const el = wrap.children[Math.max(0, at)];
+          if (!el) return;
+          wrap.style.transition = smooth ? '' : 'none';
+          const y = view.clientHeight * 0.47 - (el.offsetTop + el.offsetHeight / 2);
+          wrap.style.transform = 'translateY(' + y.toFixed(1) + 'px)';
+        };
+        return () => {
+          const a = attrs();
+          c.textContent = [a.media_title, a.media_artist].filter(Boolean).join(' \u00b7 ');
+          const L = this._scrLyrics();
+          if (!L) return;
+          if (L !== lines) {
+            lines = L; at = -2;
+            wrap.innerHTML = L.map(l => { const t = (l.text || '').trim(); return '<div class="ln' + (t ? '' : ' gap') + '">' + (t ? esc(t) : '\u2022 \u2022 \u2022') + '</div>'; }).join('');
+          }
+          const ps = pos();
+          if (ps === null) return;
+          let i = -1;
+          for (let k = 0; k < L.length; k++) { if (L[k].time <= ps + 0.15) i = k; else break; }
+          if (i === at) return;
+          const first = at === -2;
+          at = i;
+          [...wrap.children].forEach((el, k) => { el.classList.toggle('on', k === i); el.classList.toggle('past', k < i); });
+          place(!first);
+        };
+      } },
+
+      // lights: how many are on, each with its room and brightness (only while any are on)
+      lights: { bg: '#23345f', has: () => this._scrLights().on.length > 0, build: (p) => {
+        p.innerHTML = corner('Lights', '') + '<div class="cs-scol"><div class="cs-scount"><b></b><span>On</span></div><div class="cs-slist" data-fit></div></div>';
+        const cnt = p.querySelector('.cs-scount b'), box = p.querySelector('.cs-slist'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const L = this._scrLights();
+          cnt.textContent = String(L.on.length);
+          c.textContent = L.off ? L.off + ' off' : '';
+          const show = L.on;
+          const html = show.map(x => '<div class="cs-srow"><div class="cs-sic">' + CROW_MEDIA_SCR_ICON.bulb + '</div><div class="tx"><div class="cs-slab">' + esc(x.room || 'Other') + '</div><div class="cs-st1">' + esc(x.name) + '</div></div>'
+            + '<div class="rt"><b>' + (x.pct === null ? 'On' : x.pct + '%') + '</b>' + (x.pct === null ? '' : '<div class="cs-sbar"><i style="width:' + x.pct + '%"></i></div>') + '</div></div>').join('')
+          ;
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // rooms: the temperature (and humidity) in each room, warmest first
+      rooms: { bg: '#4f5b70', has: () => this._scrRooms().length > 0, build: (p) => {
+        p.innerHTML = corner('Rooms', '') + '<div class="cs-scol"><div class="cs-slist cs-srooms" data-fit></div></div>';
+        const box = p.querySelector('.cs-slist'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const R = this._scrRooms();
+          const avg = R.reduce((s, r) => s + r.t, 0) / (R.length || 1);
+          c.textContent = R.length > 1 ? 'Average ' + avg.toFixed(1) + '°' : '';
+          const hot = R[0], cold = R[R.length - 1];
+          // in Home Assistant's groups (or floors), each group warmest first
+          const G = this._scrGrouped(this._scrStable(box, R, r => r.room), r => r.group);
+          box.toggleAttribute('data-grouped', G.length > 1);
+          const row = r => {
+            const col = this._scrTempColour(r.t);
+            const lab = R.length > 2 && r === hot ? 'Warmest' : R.length > 2 && r === cold ? 'Coldest' : '';
+            return '<div class="cs-srow"><div class="cs-sic cs-stemp" style="--tc:' + col + '">' + CROW_MEDIA_SCR_ICON.therm + '</div><div class="tx"><div class="cs-slab">' + lab + '</div><div class="cs-st1">' + esc(r.room) + '</div></div>'
+              + '<div class="rt"><b style="color:' + col + '">' + r.t.toFixed(1) + '°</b>' + (r.h !== null ? '<small>' + Math.round(r.h) + '% humidity</small>' : '') + '</div></div>';
+          };
+          const html = G.map(g => (G.length > 1 ? '<div class="cs-shead">' + esc(g.name || 'Other') + '</div>' : '') + g.items.map(row).join('')).join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // heating: a dial for each thermostat, its ring coloured by the temperature (blue cold, through green, to red
+      // hot) and pale while it's off; in Home Assistant's groups (or floors) when there are any
+      heating: { bg: '#4b3f5c', has: () => this._scrClimate().length > 0, build: (p) => {
+        p.innerHTML = corner('Heating', '') + '<div class="cs-sth" data-fit></div>';
+        const box = p.querySelector('.cs-sth');
+        const C = 2 * Math.PI * 44;
+        return () => {
+          const T = this._scrClimate();
+          box.dataset.n = T.length > 6 ? 'many' : T.length > 3 ? 'some' : 'few';
+          const G = this._scrGrouped(this._scrStable(box, T, x => x.id), x => x.group);
+          box.toggleAttribute('data-grouped', G.length > 1);
+          const dial = x => {
+            const f = x.cur === null ? 0 : Math.max(0.04, Math.min(1, (this._scrToC(x.cur) - 10) / 20));
+            const off = x.action === 'off';
+            const col = off || x.cur === null ? 'rgba(255,255,255,0.5)' : this._scrTempColour(x.cur);
+            return '<div class="cs-sthd' + (off ? ' off' : '') + '"><div class="cs-sdial"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="44"/><circle class="val" cx="50" cy="50" r="44" style="stroke:' + col + ';stroke-dasharray:' + (f * C).toFixed(1) + ' ' + C.toFixed(1) + '"/></svg>'
+              + '<div class="in"><div class="n">' + (x.cur === null ? '–' : x.cur.toFixed(1) + '°') + '</div><div class="cs-slab">' + esc(x.action === 'heating' ? 'Heating' : x.action === 'cooling' ? 'Cooling' : 'Now') + '</div></div></div>'
+              + '<div class="tx"><div class="nm">' + esc(x.name) + '</div><div class="st">' + esc(x.status) + '</div></div></div>';
+          };
+          const html = G.map(g => (G.length > 1 ? '<div class="cs-shead">' + esc(g.name || 'Other') + '</div>' : '') + g.items.map(dial).join('')).join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // today: the rest of today from the calendars chosen in the editor (none chosen: this screen isn't shown)
+      calendar: { bg: '#5a4fcf', has: () => (this._scrEvents() || []).length > 0, build: (p) => {
+        p.innerHTML = corner('Today', '') + '<div class="cs-scol"><div class="cs-ssoon"></div><div class="cs-slist cs-scal" data-fit></div></div>';
+        const box = p.querySelector('.cs-slist'), soon = p.querySelector('.cs-ssoon'), c = p.querySelector('.cs-scorner span:last-child');
+        const lang = this._hass?.locale?.language || undefined;
+        const hm = d => { try { const h24 = this._hass?.locale?.time_format === '24'; return d.toLocaleTimeString(lang, { hour: h24 ? '2-digit' : 'numeric', minute: '2-digit', hour12: this._hass?.locale?.time_format === '12' ? true : this._hass?.locale?.time_format === '24' ? false : undefined }); } catch (_) { return d.toTimeString().slice(0, 5); } };
+        const len = ms => { const m = Math.round(ms / 60000); return m >= 60 ? (m % 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : Math.floor(m / 60) + ' h') : m + ' min'; };
+        return () => {
+          c.textContent = timeParts().d;
+          const E = this._scrEvents() || [];
+          const now = Date.now();
+          const first = E.find(e => !e.allDay);
+          let s = '';
+          if (first) { const m = Math.max(1, Math.round((first.start - now) / 60000)); s = first.start <= now ? 'Now' : 'Next · in ' + (m >= 60 ? Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '') : m + ' min'); }
+          if (soon.textContent !== s) soon.textContent = s;
+          const html = E.map(e => {
+            const on = !e.allDay && e.start <= now;
+            const tm = e.allDay ? 'All day' : hm(new Date(e.start));
+            const d = e.allDay ? '' : len(e.end - e.start);
+            return '<div class="cs-srow' + (e === first ? ' now' : '') + '"><div class="tm">' + esc(tm) + (d ? '<small>' + esc(on ? 'until ' + hm(new Date(e.end)) : d) + '</small>' : '') + '</div><div class="cd"></div>'
+              + '<div class="tx"><div class="cs-slab">' + esc(e.cal) + '</div><div class="cs-st1">' + esc(e.title) + '</div></div></div>';
+          }).join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // timers: every Home Assistant timer that's running or paused, as a countdown in a ring that empties
+      timers: { bg: '#c2185b', has: () => this._scrTimers().length > 0, build: (p) => {
+        p.innerHTML = corner('Timers', '') + '<div class="cs-sth cs-stimers" data-fit></div>';
+        const box = p.querySelector('.cs-sth');
+        const C = 2 * Math.PI * 44;
+        const fmt = s => { s = Math.max(0, Math.ceil(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+        return () => {
+          const T = this._scrTimers();
+          box.dataset.n = T.length > 6 ? 'many' : T.length > 3 ? 'some' : 'few';
+          const html = T.map(t => {
+            const left = t.left(), f = t.total > 0 ? Math.max(0, Math.min(1, left / t.total)) : 0;
+            const col = t.paused ? 'rgba(255,255,255,0.5)' : left <= 60 || f < 0.1 ? '#ff8a7a' : f < 0.25 ? '#ffd36b' : '#ffffff';
+            return '<div class="cs-sthd"><div class="cs-sdial"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="44"/><circle class="val" cx="50" cy="50" r="44" style="stroke:' + col + ';stroke-dasharray:' + (f * C).toFixed(1) + ' ' + C.toFixed(1) + '"/></svg>'
+              + '<div class="in"><div class="n">' + fmt(left) + '</div><div class="cs-slab">' + (t.paused ? 'Paused' : 'Left') + '</div></div></div>'
+              + '<div class="tx"><div class="nm">' + esc(t.name) + '</div><div class="st">' + esc(t.paused ? 'Paused' : 'Ends ' + t.ends) + '</div></div></div>';
+          }).join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // shopping: what's still to buy, from the shopping lists in Home Assistant
+      shopping: { bg: '#e8577a', has: () => this._scrTodo('shopping').items.length > 0, build: (p) => this._scrTodoScreen(p, 'shopping', 'Shopping', corner, esc) },
+
+      // to-do: what's still to do, from the other to-do lists in Home Assistant
+      todo: { bg: '#7e57c2', has: () => this._scrTodo('todo').items.length > 0, build: (p) => this._scrTodoScreen(p, 'todo', 'To-Do', corner, esc) },
+
+      // appliances: what's running (smart appliances, and ones on smart plugs), with the time left or how long it's
+      // been going, and what's finished in the last half hour, paler
+      appliances: { bg: '#0277bd', has: () => this._scrAppliances().length > 0, build: (p) => {
+        p.innerHTML = corner('Appliances', '') + '<div class="cs-scol"><div class="cs-slist" data-fit></div></div>';
+        const box = p.querySelector('.cs-slist'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const A = this._scrStable(box, this._scrAppliances(), a => a.key);
+          const n = A.filter(a => a.running).length;
+          c.textContent = n && n < A.length ? n + ' running' : '';
+          const html = A.map(a => '<div class="cs-srow' + (a.running ? '' : ' cs-sdone') + '"><div class="cs-sic">' + (CROW_MEDIA_SCR_ICON[a.icon] || CROW_MEDIA_SCR_ICON.plug) + '</div><div class="tx"><div class="cs-slab">' + esc(a.room || '') + '</div><div class="cs-st1">' + esc(a.name) + '</div></div>'
+            + '<div class="rt"><b>' + esc(a.big) + '</b>' + (a.small ? '<small>' + esc(a.small) + '</small>' : '') + '</div></div>').join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // security: the alarm's state and every lock, the unlocked ones lit
+      security: { bg: '#455a9e', has: () => { const x = this._scrSecurity(); return x.alarms.length > 0 || x.locks.length > 0; }, build: (p) => {
+        p.innerHTML = corner('Security', '') + '<div class="cs-scol"><div class="cs-salarm"></div><div class="cs-slist cs-slocks" data-fit></div></div>';
+        const al = p.querySelector('.cs-salarm'), box = p.querySelector('.cs-slist'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const X0 = this._scrSecurity(), X = { alarms: X0.alarms, locks: this._scrStable(box, X0.locks, l => l.id) };
+          const a = X.alarms[0];
+          const ah = a ? '<div class="cs-sic cs-sshield' + (a.armed ? ' on' : '') + (a.alert ? ' alert' : '') + '">' + CROW_MEDIA_SCR_ICON.shield + '</div><div><div class="cs-slab">' + esc(a.name) + '</div><div class="cs-sbig">' + esc(a.label) + '</div></div>' : '';
+          if (al._h !== ah) { al._h = ah; al.innerHTML = ah; al.hidden = !a; }
+          const un = X.locks.filter(l => !l.locked).length;
+          c.textContent = X.locks.length ? (un ? un + ' unlocked' : 'All locked') : '';
+          const html = X.locks.map(l => '<div class="cs-srow' + (l.locked ? '' : ' cs-shot') + '"><div class="cs-sic">' + CROW_MEDIA_SCR_ICON[l.locked ? 'lock' : 'unlock'] + '</div><div class="tx"><div class="cs-slab">' + esc(l.room || '') + '</div><div class="cs-st1">' + esc(l.name) + '</div></div><div class="rt"><b>' + esc(l.label) + '</b></div></div>').join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // occupancy: every room with an occupancy, presence or motion sensor, the ones with someone in them lit
+      occupancy: { bg: '#2f8473', has: () => this._scrOccupancy().some(r => r.on), build: (p) => {
+        p.innerHTML = corner('Occupancy', '') + '<div class="cs-smap" data-fit></div>';
+        const box = p.querySelector('.cs-smap'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const R = this._scrStable(box, this._scrOccupancy(), r => r.room);
+          const on = R.filter(r => r.on).length;
+          c.textContent = on + ' of ' + R.length + (R.length === 1 ? ' room' : ' rooms');
+          const html = R.map(r => '<div' + (r.on ? ' class="on"' : '') + '><div class="tx"><div class="cs-st1">' + esc(r.room) + '</div>' + (r.on ? '<small>' + esc(r.since ? 'for ' + this._scrAgo(r.since) : 'now') + '</small>' : '') + '</div></div>').join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // fans: every fan that's on (and smart plugs that run one), with its speed and whether it's oscillating
+      fans: { bg: '#4f6dbf', has: () => this._scrFans().length > 0, build: (p) => {
+        p.innerHTML = corner('Fans', '') + '<div class="cs-scol"><div class="cs-scount"><b></b><span>On</span></div><div class="cs-slist" data-fit></div></div>';
+        const cnt = p.querySelector('.cs-scount b'), box = p.querySelector('.cs-slist');
+        return () => {
+          const F = this._scrStable(box, this._scrFans(), f => f.id);
+          cnt.textContent = String(F.length);
+          const html = F.map(f => '<div class="cs-srow"><div class="cs-sic">' + CROW_MEDIA_SCR_ICON.fan + '</div><div class="tx"><div class="cs-slab">' + esc(f.room || '') + '</div><div class="cs-st1">' + esc(f.name) + '</div></div>'
+            + '<div class="rt"><b>' + (f.pct === null ? 'On' : f.pct + '%') + '</b>' + (f.pct === null ? '' : '<div class="cs-sbar"><i style="width:' + Math.max(3, f.pct) + '%;background:#fff"></i></div>') + (f.osc ? '<small>Oscillating</small>' : '') + '</div></div>').join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // plants: only the ones that need attention (the Plant integration's problems, or soil that's dry)
+      plants: { bg: '#607d3b', has: () => this._scrPlants().length > 0, build: (p) => {
+        p.innerHTML = corner('Plants', '') + '<div class="cs-scol"><div class="cs-scount"><b></b><span>Thirsty</span></div><div class="cs-slist" data-fit></div></div>';
+        const cnt = p.querySelector('.cs-scount b'), box = p.querySelector('.cs-slist'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const P = this._scrStable(box, this._scrPlants(), x => x.id);
+          cnt.textContent = String(P.length);
+          c.textContent = P.length === 1 ? '1 needs attention' : P.length + ' need attention';
+          const html = P.map(x => '<div class="cs-srow"><div class="cs-sic">' + CROW_MEDIA_SCR_ICON.leaf + '</div><div class="tx"><div class="cs-slab">' + esc(x.room || '') + '</div><div class="cs-st1">' + esc(x.name) + '</div></div>'
+            + '<div class="rt"><b style="color:#ffd0c4">' + (x.pct === null ? esc(x.problem) : x.pct + '%') + '</b>' + (x.pct === null ? '' : '<div class="cs-sbar"><i style="width:' + Math.max(3, x.pct) + '%;background:#ffb4a2"></i></div><small>' + esc(x.problem) + '</small>') + '</div></div>').join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // blinds and covers: what's open, and how far
+      covers: { bg: '#8d6e63', has: () => this._scrCovers().open.length > 0, build: (p) => {
+        p.innerHTML = corner('Blinds & Covers', '') + '<div class="cs-scol"><div class="cs-scount"><b></b><span>Open</span></div><div class="cs-slist" data-fit></div></div>';
+        const cnt = p.querySelector('.cs-scount b'), box = p.querySelector('.cs-slist'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const X = this._scrCovers(), O = this._scrStable(box, X.open, x => x.id);
+          cnt.textContent = String(O.length);
+          c.textContent = X.closed ? X.closed + ' closed' : '';
+          const html = O.map(x => '<div class="cs-srow"><div class="cs-sic">' + CROW_MEDIA_SCR_ICON.blind + '</div><div class="tx"><div class="cs-slab">' + esc(x.room || '') + '</div><div class="cs-st1">' + esc(x.name) + '</div></div>'
+            + '<div class="rt"><b>' + (x.pct === null ? esc(x.label) : x.pct + '%') + '</b>' + (x.pct === null ? '' : '<div class="cs-sbar"><i style="width:' + Math.max(3, x.pct) + '%;background:#fff"></i></div>') + '</div></div>').join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // robot vacuums: while one is out, its battery in a ring and what it's doing
+      vacuum: { bg: '#00897b', has: () => this._scrVacuums().length > 0, build: (p) => {
+        p.innerHTML = corner('Robot Vacuum', '') + '<div class="cs-sth cs-svac" data-fit></div>';
+        const box = p.querySelector('.cs-sth');
+        const C = 2 * Math.PI * 44;
+        return () => {
+          const V = this._scrStable(box, this._scrVacuums(), v => v.id);
+          box.dataset.n = V.length > 6 ? 'many' : V.length > 3 ? 'some' : 'few';
+          const html = V.map(v => {
+            const f = v.bat === null ? 0 : Math.max(0.02, Math.min(1, v.bat / 100));
+            const col = v.bat !== null && v.bat < 20 ? '#ff8a7a' : '#ffffff';
+            return '<div class="cs-sthd"><div class="cs-sdial"><svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="44"/><circle class="val" cx="50" cy="50" r="44" style="stroke:' + col + ';stroke-dasharray:' + (f * C).toFixed(1) + ' ' + C.toFixed(1) + '"/></svg>'
+              + '<div class="in"><div class="n">' + (v.bat === null ? '–' : v.bat + '%') + '</div><div class="cs-slab">Battery</div></div></div>'
+              + '<div class="tx"><div class="nm">' + esc(v.name) + '</div><div class="st">' + esc(v.status) + '</div></div></div>';
+          }).join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // printers: ink or toner under 20%, lowest first
+      printers: { bg: '#5c6bc0', has: () => this._scrInk().length > 0, build: (p) => {
+        p.innerHTML = corner('Printers', '') + '<div class="cs-scol"><div class="cs-scount"><b></b><span>Low</span></div><div class="cs-slist" data-fit></div></div>';
+        const cnt = p.querySelector('.cs-scount b'), box = p.querySelector('.cs-slist');
+        return () => {
+          const I = this._scrStable(box, this._scrInk(), x => x.id);
+          cnt.textContent = String(I.length);
+          const html = I.map(x => '<div class="cs-srow"><div class="cs-sic">' + CROW_MEDIA_SCR_ICON.printer + '</div><div class="tx"><div class="cs-slab">' + esc(x.printer) + '</div><div class="cs-st1">' + esc(x.name) + '</div></div>'
+            + '<div class="rt"><b style="color:' + (x.pct < 10 ? '#ffd0c4' : '#ffe08a') + '">' + x.pct + '%</b><div class="cs-sbar"><i style="width:' + Math.max(3, x.pct) + '%;background:' + (x.pct < 10 ? '#ff8a7a' : '#ffd36b') + '"></i></div></div></div>').join('');
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+
+      // doorbells: the picture from every doorbell camera, with when it last rang (for half an hour after); a
+      // doorbell without a camera shows only while it's just rung
+      doorbell: { bg: '#b85c38', has: () => this._scrDoorbells().length > 0, build: (p) => camGrid(p, 'Doorbell', () => this._scrDoorbells()) },
+
+      // cameras: the latest picture from every camera, three to a row (doorbell
+      // cameras are on the Doorbell screen instead while it's on)
+      cameras: { bg: '#3e4a61', has: () => this._scrCameras().length > 0, build: (p) => camGrid(p, 'Cameras', () => this._scrCameras()) },
+
+      // doors and windows: what's open now, each with how long it's been open (only while something is)
+      open: { bg: '#e58a1f', has: () => openings().open.length > 0, build: (p) => {
+        p.innerHTML = corner('Doors & Windows', '') + '<div class="cs-sopen"><div class="cs-scount"><b></b><span>Open</span></div><div class="cs-sotiles" data-fit></div></div>';
+        const cnt = p.querySelector('.cs-scount b'), box = p.querySelector('.cs-sotiles'), c = p.querySelector('.cs-scorner span:last-child');
+        return () => {
+          const o = openings();
+          cnt.textContent = String(o.open.length);
+          c.textContent = o.closed ? o.closed + ' closed' : '';
+          const show = o.open;
+          const html = show.map(x => '<div class="cs-sot"><div class="cs-sic cs-sic-' + x.kind + '">' + CROW_MEDIA_SCR_ICON[x.kind] + '</div><div class="tx"><div class="cs-slab">' + esc(x.room || 'Other') + '</div><div class="cs-st1">' + esc(x.name) + '</div></div><div class="dur">' + esc(this._scrAgo(x.since)) + '</div></div>').join('')
+
+          if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+        };
+      } },
+    };
+  },
+
+  // The room an entity is in (its own area, or its device's), and whether it's one to leave out
+  // (hidden, or a diagnostic or config entity)
+  _scrArea(id) { const a = this._scrAreaId(id); return a ? (this._hass?.areas?.[a]?.name || '') : ''; },
+  _scrAreaId(id) {
+    const h = this._hass, reg = h?.entities?.[id];
+    const areaId = reg?.area_id || (reg?.device_id ? h?.devices?.[reg.device_id]?.area_id : null);
+    if (areaId && h?.areas?.[areaId]) return areaId;
+    // no area set: the room its name or entity id starts with ("Living Room Temperature", sensor.living_room_…)
+    const norm = t => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const nm = norm(h?.states?.[id]?.attributes?.friendly_name), obj = norm(id.split('.')[1]);
+    let best = '', bestId = '';
+    for (const a of Object.values(h?.areas || {})) {
+      const k = norm(a?.name);
+      if (!k || k.length <= norm(best).length) continue;
+      if (nm === k || nm.startsWith(k + '_') || obj === k || obj.startsWith(k + '_')) { best = a.name; bestId = a.area_id || Object.keys(h.areas).find(x => h.areas[x] === a) || ''; }
+    }
+    return bestId;
+  },
+  _scrSkip(id) { const reg = this._hass?.entities?.[id]; return !!(reg?.hidden || reg?.entity_category); },
+  // A name without its room's at the front ("Kitchen Island Pendants" in the Kitchen: "Island Pendants")
+  _scrName(id, room) {
+    let n = String(this._hass?.states?.[id]?.attributes?.friendly_name || id.split('.')[1].replace(/_/g, ' '));
+    if (room && n.toLowerCase().startsWith(room.toLowerCase() + ' ')) n = n.slice(room.length + 1);
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  },
+  // worked out at most every couple of seconds, and again whenever Home Assistant's states change
+  _scrMemo(key, fn) {
+    const h = this._hass, now = Date.now();
+    if (!this._scrMemos) this._scrMemos = {};
+    const m = this._scrMemos[key];
+    if (m && m.states === h?.states && now - m.at < 2000) return m.v;
+    const v = fn();
+    this._scrMemos[key] = { states: h?.states, at: now, v };
+    return v;
+  },
+
+  // Every light (light groups are left out, so nothing is counted twice), the ones that are on brightest first
+  _scrLights() {
+    return this._scrMemo('lights', () => {
+      const on = [];
+      let off = 0;
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (!id.startsWith('light.') || this._scrSkip(id)) continue;
+        if (Array.isArray(s.attributes?.entity_id) || s.attributes?.is_hue_group) continue;
+        if (s.state === 'off') { off++; continue; }
+        if (s.state !== 'on') continue;
+        const room = this._scrArea(id);
+        const b = Number(s.attributes?.brightness);
+        on.push({ id, room, name: this._scrName(id, room), pct: Number.isFinite(b) ? Math.max(1, Math.round(b / 255 * 100)) : null });
+      }
+      on.sort((a, b) => (a.room || '￿').localeCompare(b.room || '￿') || a.name.localeCompare(b.name, undefined, { numeric: true }));
+      return { on, off };
+    });
+  },
+
+  // Each room with a temperature sensor (several in one room are averaged), with its humidity if it has one.
+  // Sensors that aren't in a room (often outdoor ones) are left out.
+  _scrRooms() {
+    return this._scrMemo('rooms', () => {
+      const rooms = new Map();
+      const add = (room, k, v, id) => { if (!rooms.has(room)) rooms.set(room, { t: [], tIds: [], h: [], ids: [], area: this._scrAreaId(id) }); const r = rooms.get(room); r[k].push(v); r.ids.push(id); if (k === 't') r.tIds.push(id); };
+      const unit = (this._hass?.config?.unit_system?.temperature || '°C');
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (!id.startsWith('sensor.') || this._scrSkip(id)) continue;
+        let dc = s.attributes?.device_class;
+        const u0 = String(s.attributes?.unit_of_measurement || '');
+        if (!dc && (u0 === '\u00b0C' || u0 === '\u00b0F')) dc = 'temperature';
+        else if (!dc && u0 === '%' && /humidity/i.test(id + ' ' + (s.attributes?.friendly_name || ''))) dc = 'humidity';
+        if (dc !== 'temperature' && dc !== 'humidity') continue;
+        const v = Number(s.state);
+        if (!Number.isFinite(v)) continue;
+        const room = this._scrArea(id);
+        if (!room) continue;
+        if (dc === 'temperature') {
+          // in Home Assistant's own unit
+          let t = v;
+          const u = s.attributes?.unit_of_measurement;
+          if (u === '°F' && unit === '°C') t = (v - 32) * 5 / 9;
+          else if (u === '°C' && unit === '°F') t = v * 9 / 5 + 32;
+          add(room, 't', t, id);
+        } else add(room, 'h', v, id);
+      }
+      const avg = a => a.reduce((s, x) => s + x, 0) / a.length;
+      // the readings that aren't the room's air: thermostats' and radiator valves' own sensors (a device that also
+      // has a thermostat), and anything named for a radiator, a valve, a chip, a battery, outdoors, water or a fridge
+      const climateDevs = new Set(Object.keys(this._hass?.states || {}).filter(id => id.startsWith('climate.')).map(id => this._hass?.entities?.[id]?.device_id).filter(Boolean));
+      const notAir = id => {
+        const nm = id + ' ' + (this._hass?.states?.[id]?.attributes?.friendly_name || '');
+        const dev = this._hass?.entities?.[id]?.device_id;
+        return (dev && climateDevs.has(dev)) || /radiator|\btrv\b|valve|thermostat|heater|boiler|cpu|chip|processor|internal|device|battery|outdoor|outside|garden|soil|water|tank|fridge|freezer|oven|probe|pool|aquarium|dew|feels/i.test(nm);
+      };
+      for (const x of rooms.values()) {
+        const air = x.tIds.map((id, i) => [id, x.t[i]]).filter(([id]) => !notAir(id));
+        if (air.length) { x.t = air.map(a => a[1]); }
+      }
+      return [...rooms.entries()].filter(([, x]) => x.t.length).map(([room, x]) => ({ room, t: avg(x.t), h: x.h.length ? avg(x.h) : null, group: this._scrGroupName(x.ids, x.area) })).sort((a, b) => b.t - a.t);
+    });
+  },
+
+  // Every thermostat: the temperature now, what it's set to, and whether it's heating, cooling or idle
+  _scrClimate() {
+    return this._scrMemo('climate', () => {
+      const out = [];
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (!id.startsWith('climate.') || this._scrSkip(id) || s.state === 'unavailable' || s.state === 'unknown') continue;
+        const a = s.attributes || {};
+        const cur = Number(a.current_temperature);
+        const set = Number(a.temperature), lo = Number(a.target_temp_low), hi = Number(a.target_temp_high);
+        const deg = v => (Number.isInteger(v) ? v : v.toFixed(1)) + '°';
+        const target = Number.isFinite(set) ? deg(set) : (Number.isFinite(lo) && Number.isFinite(hi) ? deg(lo) + '–' + deg(hi) : '');
+        const action = String(a.hvac_action || '').toLowerCase();
+        let status;
+        if (s.state === 'off') status = 'Off';
+        else if (action === 'heating' || action === 'preheating') status = target ? 'Heating to ' + target : 'Heating';
+        else if (action === 'cooling') status = target ? 'Cooling to ' + target : 'Cooling';
+        else if (action === 'drying') status = 'Drying';
+        else if (action === 'fan') status = 'Fan';
+        else status = target ? 'Idle · set to ' + target : 'Idle';
+        const room = this._scrArea(id);
+        out.push({ id, group: this._scrGroupName([id], this._scrAreaId(id)), name: this._scrName(id, ''), room, cur: Number.isFinite(cur) ? cur : null, action: s.state === 'off' ? 'off' : action === 'preheating' ? 'heating' : action, status });
+      }
+      // the ones heating or cooling first
+      const rank = x => x.action === 'heating' || x.action === 'cooling' ? 0 : 1;
+      return out.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+    });
+  },
+
+
+  // The rest of today from the calendars chosen in the editor, asked for at most every five minutes.
+  // With none chosen there's nothing to show, so the screen is passed over.
+  _scrEvents() {
+    const cals = (Array.isArray(this._config?.screensaver_calendars) ? this._config.screensaver_calendars : []).filter(id => this._hass?.states?.[id]);
+    if (!cals.length) return null;
+    const key = cals.join(',') + '|' + new Date().toDateString();
+    const m = this._scrCalMemo;
+    const now = Date.now();
+    const keep = list => (list || []).filter(e => e.allDay || e.end > now);
+    if (m && m.key === key && (now - m.at < 5 * 60000 || m.busy)) return keep(m.list);
+    const list = m?.key === key ? m.list : null;
+    this._scrCalMemo = { key, at: now, list, busy: true };
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(start.getTime() + 86400000);
+    const when = d => d.dateTime || d.date || d;
+    Promise.all(cals.map(id => Promise.resolve(this._hass?.callApi?.('GET', 'calendars/' + id + '?start=' + encodeURIComponent(start.toISOString()) + '&end=' + encodeURIComponent(end.toISOString())))
+      .then(evs => (Array.isArray(evs) ? evs : []).map(e => {
+        const s0 = when(e.start), e0 = when(e.end);
+        const allDay = typeof s0 === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s0);
+        const st = allDay ? start.getTime() : new Date(s0).getTime();
+        const en = allDay ? end.getTime() : new Date(e0).getTime();
+        return { title: e.summary || e.message || '', start: st, end: en, allDay, cal: this._hass?.states?.[id]?.attributes?.friendly_name || '' };
+      })).catch(() => [])))
+      .then(all => {
+        const evs = all.flat().filter(e => e.title && e.end > start.getTime() && e.start < end.getTime())
+          .sort((a, b) => (b.allDay - a.allDay) || a.start - b.start);
+        if (this._scrCalMemo?.key === key) this._scrCalMemo = { key, at: Date.now(), list: evs, busy: false };
+      })
+      .catch(() => { if (this._scrCalMemo?.key === key) this._scrCalMemo.busy = false; });
+    return keep(list);
+  },
+
+  // Every timer that's running or paused: its name, how long is left (worked out to the second), and when it ends
+  _scrTimers() {
+    const lang = this._hass?.locale?.language || undefined;
+    const h24 = this._hass?.locale?.time_format === '24';
+    const secs = v => { const m = String(v || '').match(/^(?:(\d+)\s+days?,\s*)?(\d+):(\d+):(\d+)/); return m ? (Number(m[1] || 0) * 86400 + Number(m[2]) * 3600 + Number(m[3]) * 60 + Number(m[4])) : 0; };
+    const out = [];
+    for (const [id, s] of Object.entries(this._hass?.states || {})) {
+      if (!id.startsWith('timer.') || this._scrSkip(id) || (s.state !== 'active' && s.state !== 'paused')) continue;
+      const a = s.attributes || {};
+      const total = secs(a.duration);
+      const paused = s.state === 'paused';
+      const end = a.finishes_at ? new Date(a.finishes_at).getTime() : NaN;
+      const rem = secs(a.remaining);
+      const left = () => paused || !Number.isFinite(end) ? rem : Math.max(0, (end - Date.now()) / 1000);
+      let ends = '';
+      if (Number.isFinite(end)) { try { ends = new Date(end).toLocaleTimeString(lang, { hour: h24 ? '2-digit' : 'numeric', minute: '2-digit', hour12: this._hass?.locale?.time_format === '12' ? true : h24 ? false : undefined }); } catch (_) {} }
+      out.push({ id, name: this._scrName(id, ''), total: total || rem, paused, left, ends });
+    }
+    return out.sort((a, b) => a.left() - b.left());
+  },
+
+  // The to-do lists in Home Assistant, split in two: shopping lists (by name: shopping, groceries) and the rest.
+  // Their items are asked for when a list changes, and at most every couple of minutes otherwise.
+  _scrTodo(kind) {
+    const lists = Object.entries(this._hass?.states || {}).filter(([id, s]) => id.startsWith('todo.') && !this._scrSkip(id) && s.state !== 'unavailable')
+      .filter(([id, s]) => (/shopping|grocer/i.test(id + ' ' + (s.attributes?.friendly_name || ''))) === (kind === 'shopping'));
+    const items = [];
+    if (!this._scrTodoMemo) this._scrTodoMemo = {};
+    for (const [id, s] of lists) {
+      const count = Number(s.state);
+      if (!(count > 0)) continue;
+      const m = this._scrTodoMemo[id];
+      const stale = !m || m.count !== s.state || Date.now() - m.at > 120000;
+      if (stale && !m?.busy && this._hass?.connection) {
+        this._scrTodoMemo[id] = { ...(m || {}), busy: true, at: Date.now(), count: s.state };
+        this._hass.connection.sendMessagePromise({ type: 'todo/item/list', entity_id: id })
+          .then(r => { this._scrTodoMemo[id] = { items: (r?.items || []).filter(x => x.status !== 'completed'), at: Date.now(), count: s.state, busy: false }; })
+          .catch(() => { this._scrTodoMemo[id] = { items: m?.items || [], at: Date.now(), count: s.state, busy: false }; });
+      }
+      const list = String(s.attributes?.friendly_name || id.slice(5));
+      (this._scrTodoMemo[id]?.items || []).forEach(x => items.push({ list, title: x.summary || '', due: x.due || '' }));
+    }
+    return { items: items.filter(x => x.title), lists: lists.length };
+  },
+  _scrTodoScreen(p, kind, title, corner, esc) {
+    p.innerHTML = corner(title, '') + '<div class="cs-scol"><div class="cs-scount"><b></b><span>' + (kind === 'shopping' ? 'To buy' : 'To do') + '</span></div><div class="cs-slist cs-stodo" data-fit></div></div>';
+    const cnt = p.querySelector('.cs-scount b'), box = p.querySelector('.cs-slist');
+    const lang = this._hass?.locale?.language || undefined;
+    return () => {
+      const T = this._scrTodo(kind);
+      cnt.textContent = String(T.items.length);
+      const many = new Set(T.items.map(x => x.list)).size > 1;
+      const html = T.items.map(x => {
+        let due = '';
+        if (x.due) { try { const d = new Date(x.due); due = isNaN(d) ? '' : d.toLocaleDateString(lang, { weekday: 'short', day: 'numeric', month: 'short' }); } catch (_) {} }
+        return '<div class="cs-srow"><div class="tx"><div class="cs-slab">' + (many ? esc(x.list) : '') + '</div><div class="cs-st1">' + esc(x.title) + '</div></div>' + (due ? '<div class="rt"><small>' + esc(due) + '</small></div>' : '') + '</div>';
+      }).join('');
+      if (box._h !== html) { box._h = html; this._scrPatch(box, html); }
+    };
+  },
+
+
+  // Everything that says what something is: its entity ID, its name, its icon (set in Home Assistant, such as
+  // mdi:tumble-dryer) and its device's name, model and maker. So an air fryer called "Leonard" is still found by
+  // its entity ID (switch.airfryer_plug) or its icon.
+  _scrText(id) {
+    const h = this._hass, s = h?.states?.[id], e = h?.entities?.[id];
+    const d = e?.device_id ? h?.devices?.[e.device_id] : null;
+    return [id, s?.attributes?.friendly_name, e?.name, e?.icon, s?.attributes?.icon, d?.name, d?.name_by_user, d?.model, d?.manufacturer].filter(Boolean).join(' ');
+  },
+
+  // Appliances that are running, or finished in the last half hour: smart ones (a washing machine, dryer or
+  // dishwasher with its own status and time left) and ones on a smart plug, which are running while the plug's
+  // power (W) is over a few watts, or its energy (kWh) is going up quickly. Found by their icon, entity IDs, names
+  // or device. One row per device.
+  _scrAppliances() {
+    return this._scrMemo('appliances', () => {
+      const h = this._hass, states = h?.states || {}, now = Date.now();
+      // [key, what it's called, its icon, name, watts it counts as running over]
+      const kinds = [
+        ['dishwasher', /dish[\s_-]*washer|geschirr/i, /dishwasher/, 'Dishwasher', 15],
+        ['washer', /wash(ing)?[\s_-]*machine|washer(?![\s_-]*dryer)|lavatrice|waschmaschine/i, /washing-machine/, 'Washing Machine', 15],
+        ['dryer', /tumble|(?<!hair[\s_-]*)dryer|(?<!hair[\s_-]*)drier|trockner/i, /tumble-dryer/, 'Tumble Dryer', 15],
+        ['airfryer', /air[\s_-]*fryer|fryer|friteuse/i, /fryer/, 'Air Fryer', 30],
+        ['kettle', /kettle|wasserkocher/i, /kettle/, 'Kettle', 100],
+        ['coffee', /coffee(?![\s_-]*table)|espresso|nespresso|kaffee/i, /coffee/, 'Coffee Machine', 30],
+        ['microwave', /microwave|mikrowelle/i, /microwave/, 'Microwave', 50],
+        ['slowcooker', /slow[\s_-]*cooker|crock[\s_-]*pot|instant[\s_-]*pot|pressure[\s_-]*cooker/i, /pot-steam|pot-mix/, 'Slow Cooker', 20],
+        ['oven', /\boven\b|_oven|oven_|\bstove\b|range[\s_-]*cooker/i, /stove|oven/, 'Oven', 50],
+        ['bread', /bread[\s_-]*(maker|machine)|breadmaker/i, /bread/, 'Bread Maker', 20],
+        ['ev', /ev[\s_-]*charg|wallbox|zappi|easee|ohme|car[\s_-]*charg/i, /ev-station|car-electric|ev-plug/, 'EV Charger', 500]];
+      // not the appliance itself: what it costs, tariffs, solar and the like
+      const not = /cost|tariff|price|rate\b|_rate|import|export|grid|solar|battery|forecast/i;
+      const idle = /^(off|idle|standby|ready|stop|stopped|end|finished|complete|completed|done|power[\s_]?off|unavailable|unknown|none|inactive|0)$/i;
+      const doneWord = /^(end|finished|complete|completed|done)$/i;
+      const domains = /^(sensor|binary_sensor|select|switch|input_boolean)\./;
+      const kindOf = (id) => {
+        const e = h?.entities?.[id], icon = String(e?.icon || states[id]?.attributes?.icon || '');
+        const byIcon = icon && kinds.find(k => k[2].test(icon));
+        if (byIcon) return byIcon;
+        const txt = this._scrText(id);
+        if (not.test(id + ' ' + (states[id]?.attributes?.friendly_name || ''))) return null;
+        return kinds.find(k => k[1].test(txt)) || null;
+      };
+      // every device (or entity without one) that's an appliance, with all of its entities
+      const groups = new Map(), byDev = new Map();
+      for (const id of Object.keys(states)) {
+        if (!domains.test(id) || h?.entities?.[id]?.hidden) continue;
+        const dev = h?.entities?.[id]?.device_id;
+        if (dev) { if (!byDev.has(dev)) byDev.set(dev, []); byDev.get(dev).push(id); }
+        const kind = kindOf(id);
+        if (!kind) continue;
+        const key = dev || ('x:' + kind[0]);
+        if (!groups.has(key)) groups.set(key, { kind, ids: new Set(), dev: dev ? h?.devices?.[dev] : null, id });
+        groups.get(key).ids.add(id);
+      }
+      for (const [key, g] of groups) if (!key.startsWith('x:')) (byDev.get(key) || []).forEach(id => g.ids.add(id));
+      const out = [];
+      const mins = ms => { const m = Math.max(1, Math.round(ms / 60000)); return m >= 60 ? Math.floor(m / 60) + ' h ' + (m % 60) + ' min' : m + ' min'; };
+      this._scrApplSeen = this._scrApplSeen || new Map();
+      for (const [key, g] of groups) {
+        if (g.ids.size > 80) continue;
+        let status = '', left = '', running = false, power = null, energy = null, sw = null, finishedAt = 0;
+        for (const id of g.ids) {
+          const s = states[id], st = String(s?.state || ''), a = s?.attributes || {};
+          const dc = a.device_class, unit = a.unit_of_measurement || '', nm = id + ' ' + (a.friendly_name || '');
+          if (not.test(nm)) continue;
+          if (!status && (id.startsWith('sensor.') || id.startsWith('select.')) && !dc && !unit && st && !/^-?\d+(\.\d+)?$/.test(st) && /state|status|operation|cycle|phase|program|mode|job|run/i.test(nm)) {
+            if (!idle.test(st)) { status = st.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()); running = true; }
+            else if (doneWord.test(st)) finishedAt = Math.max(finishedAt, new Date(s.last_changed).getTime());
+          }
+          if (id.startsWith('binary_sensor.') && st === 'on' && /run|active|operat/i.test(id)) running = true;
+          if (!left && dc === 'timestamp' && /finish|end|complet|done|remain/i.test(nm)) {
+            const t = new Date(st).getTime() - now;
+            if (t > 0 && t < 12 * 3600000) { left = mins(t); running = true; }
+          }
+          if (!left && (unit === 'min' || unit === 'h' || unit === 's' || dc === 'duration') && /remain|left|time[\s_]?to|finish/i.test(nm)) {
+            const v = Number(st);
+            if (Number.isFinite(v) && v > 0) { left = mins((unit === 'h' ? v * 3600 : unit === 's' ? v : v * 60) * 1000); running = true; }
+          }
+          if (id.startsWith('sensor.') && power === null && (dc === 'power' || /^k?W$/.test(unit))) power = id;
+          if (id.startsWith('sensor.') && energy === null && (dc === 'energy' || /^k?Wh$/.test(unit))) energy = id;
+          if ((id.startsWith('switch.') || id.startsWith('input_boolean.')) && sw === null) sw = id;
+        }
+        const thr = g.kind[4];
+        let since = 0, sub = '';
+        if (!running && power) {
+          const r = this._scrApplMeter(power, 'power', thr);
+          running = r.running; since = r.start || 0;
+          if (!running && r.stop) finishedAt = Math.max(finishedAt, r.stop);
+          const w = this._scrApplWatts(power);
+          if (running && w > 0) sub = w >= 1000 ? (w / 1000).toFixed(2).replace(/0$/, '') + ' kW' : Math.round(w) + ' W';
+        } else if (!running && energy) {
+          const r = this._scrApplMeter(energy, 'energy', thr);
+          running = r.running; since = r.start || 0;
+          if (!running && r.stop) finishedAt = Math.max(finishedAt, r.stop);
+          if (running && r.used > 0.005) sub = r.used.toFixed(2) + ' kWh used';
+        } else if (!running && sw && !status) {
+          // a plug that can't measure: running while it's switched on, unless it's always on
+          const s = states[sw], on = s?.state === 'on', ch = new Date(s?.last_changed).getTime();
+          if (on && now - ch < 6 * 3600000) { running = true; since = ch; }
+        }
+        // seen running in this session, and now stopped: finished
+        const seen = this._scrApplSeen.get(key);
+        if (running) this._scrApplSeen.set(key, { at: now });
+        else if (seen && now - seen.at < 60000 && !finishedAt) finishedAt = now;
+        if (!running && seen && finishedAt) this._scrApplSeen.delete(key);
+        const fin = !running && finishedAt && now - finishedAt < 30 * 60000 && now - finishedAt > -60000;
+        if (!running && !fin) continue;
+        // its own name (Leonard), not the plug's (Smart Plug 3): else what it is (Tumble Dryer)
+        const trim = n => String(n || '').replace(/\s*(smart\s*)?(plug|socket|outlet|switch|power|energy|status|state)(\s*\d+)?$/i, '').trim();
+        const generic = n => !n || /\b(smart\s*)?(plug|socket|outlet|switch|power\s*strip)\b|^(tapo|kasa|shelly|sonoff|meross|tp-link|tuya)\b/i.test(n);
+        const name = [g.dev?.name_by_user, g.dev?.name, /^(switch|input_boolean)\./.test(g.id) ? states[g.id]?.attributes?.friendly_name : ''].map(n => String(n || '').trim()).filter(n => n && !generic(n)).map(trim).find(Boolean)
+          || [g.dev?.name_by_user, g.dev?.name, /^(switch|input_boolean)\./.test(g.id) ? states[g.id]?.attributes?.friendly_name : ''].map(trim).find(n => n && !generic(n)) || g.kind[3];
+        const room = this._scrArea(g.id);
+        if (running) out.push({ key, name, room, icon: g.kind[0], running: true, big: left || (since ? mins(now - since) : (status || 'On')), small: left ? (status || 'Left') : [status || 'Running', sub].filter(Boolean).join(' · '), at: since || now });
+        else out.push({ key, name, room, icon: g.kind[0], running: false, big: g.kind[0] === 'kettle' ? 'Boiled' : 'Finished', small: (now - finishedAt < 60000 ? 'Just now' : mins(now - finishedAt) + ' ago'), at: finishedAt });
+      }
+      // running first, then the most recently finished
+      return out.sort((a, b) => (b.running - a.running) || (a.running ? a.name.localeCompare(b.name) : b.at - a.at));
+    });
+  },
+  // A meter's present reading in watts
+  _scrApplWatts(id) {
+    const s = this._hass?.states?.[id], v = Number(s?.state);
+    return Number.isFinite(v) ? (/^kW$/.test(s?.attributes?.unit_of_measurement || '') ? v * 1000 : v) : 0;
+  },
+  // Whether a plug's meter says it's running: its readings over the last few hours (from Home Assistant's history
+  // once, then as they change), with when this run started (or the last one stopped) and the energy it's used.
+  // Power: over the threshold, with three minutes' grace for a pause (a dryer's cool-down). Energy: going up at
+  // more than the threshold's rate, allowing for meters that only report every so often.
+  _scrApplMeter(id, type, thr) {
+    const now = Date.now();
+    this._scrApplSer = this._scrApplSer || new Map();
+    let ser = this._scrApplSer.get(id);
+    if (!ser) { ser = { pts: [], hist: false }; this._scrApplSer.set(id, ser); this._scrApplHistory(id, type, ser); }
+    const s = this._hass?.states?.[id];
+    const unit = s?.attributes?.unit_of_measurement || '';
+    const val = st => { const v = Number(st); return Number.isFinite(v) ? (type === 'power' ? (unit === 'kW' ? v * 1000 : v) : (unit === 'Wh' ? v / 1000 : v)) : null; };
+    const t = new Date(s?.last_changed || s?.last_updated || now).getTime(), v = val(s?.state);
+    const last = ser.pts[ser.pts.length - 1];
+    if (v !== null && (!last || (t > last.t && v !== last.v))) ser.pts.push({ t, v });
+    if (ser.pts.length > 600) ser.pts.splice(0, ser.pts.length - 600);
+    ser.val = val;
+    const P = ser.pts;
+    if (!P.length) return { running: false };
+    if (type === 'power') {
+      // the stretches over the threshold, joined where they're less than three minutes apart
+      let runs = [], cur = null;
+      for (let i = 0; i < P.length; i++) {
+        const end = i + 1 < P.length ? P[i + 1].t : now;
+        if (P[i].v > thr) {
+          if (cur && P[i].t - cur.end < 180000) cur.end = end;
+          else { cur = { start: P[i].t, end }; runs.push(cur); }
+        }
+      }
+      const r = runs[runs.length - 1];
+      if (!r) return { running: false };
+      const running = now - r.end < 180000 || (P[P.length - 1].v > thr);
+      return { running, start: r.start, stop: running ? 0 : r.end };
+    }
+    // energy: each rise, at the rate it came in at
+    const ch = [];
+    for (let i = 1; i < P.length; i++) {
+      const dv = P[i].v - P[i - 1].v, dt = P[i].t - P[i - 1].t;
+      if (dv <= 0 || dt <= 0) { ch.push({ t: P[i].t, v: P[i].v, w: 0, dt, dv: 0 }); continue; }
+      ch.push({ t: P[i].t, v: P[i].v, w: dv * 3.6e9 / dt, dt, dv });
+    }
+    if (!ch.length) return { running: false };
+    // the last stretch of fast rises, each within a few minutes of the next
+    let i = ch.length - 1;
+    while (i >= 0 && ch[i].w < thr) i--;
+    if (i < 0) return { running: false };
+    const lastHot = ch[i];
+    const gaps = [];
+    let j = i;
+    while (j > 0 && ch[j - 1].w >= thr && ch[j].dt < 20 * 60000) { gaps.push(ch[j].dt); j--; }
+    const typical = gaps.length ? gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)] : lastHot.dt;
+    const grace = Math.min(20 * 60000, Math.max(4 * 60000, typical * 1.6));
+    // the rise that started it was measured from long before, so the start is when it would have begun at the
+    // run's rate
+    const first = ch[j], rate = lastHot.w;
+    const start = first.t - Math.min(first.dt, (first.dv * 3.6e9) / Math.max(rate, thr));
+    const before = P[P.indexOf(P.find(p => p.t === first.t)) - 1];
+    const used = P[P.length - 1].v - (before ? before.v : first.v);
+    // needs at least two quick rises in a row, or one rise at the threshold's rate over a short time
+    if (i === j && lastHot.dt > grace) return { running: false };
+    const running = now - lastHot.t < grace;
+    return { running, start, stop: running ? 0 : lastHot.t, used: Math.max(0, used) };
+  },
+  // The last three hours of a meter's readings, from Home Assistant's history, so a dryer that was already
+  // running when the screensaver came on shows how long it's been going
+  _scrApplHistory(id, type, ser) {
+    const h = this._hass;
+    if (!h?.callApi) return;
+    const start = new Date(Date.now() - 3 * 3600000).toISOString();
+    h.callApi('GET', 'history/period/' + start + '?filter_entity_id=' + encodeURIComponent(id) + '&minimal_response&no_attributes').then(res => {
+      const rows = Array.isArray(res) && Array.isArray(res[0]) ? res[0] : [];
+      const val = ser.val || (st => { const v = Number(st); return Number.isFinite(v) ? v : null; });
+      const pts = [];
+      for (const r of rows) {
+        const v = val(r.state), t = new Date(r.last_changed || r.last_updated).getTime();
+        if (v === null || !Number.isFinite(t)) continue;
+        if (pts.length && v === pts[pts.length - 1].v) continue;
+        pts.push({ t, v });
+      }
+      // what's been seen since goes on the end
+      const after = ser.pts.filter(p => !pts.length || p.t > pts[pts.length - 1].t);
+      ser.pts = pts.concat(after);
+      ser.hist = true;
+      if (this._scrMemos) delete this._scrMemos.appliances;
+    }).catch(() => {});
+  },
+
+  // The alarm panels and every lock: armed or not, and which locks are unlocked (or jammed)
+  _scrSecurity() {
+    return this._scrMemo('security', () => {
+      const alarms = [], locks = [];
+      const labels = { disarmed: 'Disarmed', armed_home: 'Armed home', armed_away: 'Armed away', armed_night: 'Armed night', armed_vacation: 'Armed vacation', armed_custom_bypass: 'Armed', arming: 'Arming', disarming: 'Disarming', pending: 'Pending', triggered: 'Triggered' };
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (this._scrSkip(id) || s.state === 'unavailable' || s.state === 'unknown') continue;
+        if (id.startsWith('alarm_control_panel.')) alarms.push({ id, name: this._scrName(id, ''), label: labels[s.state] || s.state, armed: /^armed/.test(s.state), alert: s.state === 'triggered' || s.state === 'pending' });
+        else if (id.startsWith('lock.')) {
+          const room = this._scrArea(id);
+          const label = { locked: 'Locked', unlocked: 'Unlocked', open: 'Open', jammed: 'Jammed', locking: 'Locking', unlocking: 'Unlocking', opening: 'Opening' }[s.state] || s.state;
+          locks.push({ id, room, name: this._scrName(id, room), locked: s.state === 'locked' || s.state === 'locking', label });
+        }
+      }
+      // the triggered alarm first; unlocked locks first
+      alarms.sort((a, b) => b.alert - a.alert || b.armed - a.armed);
+      locks.sort((a, b) => a.locked - b.locked || (a.room || '').localeCompare(b.room || '') || a.name.localeCompare(b.name, undefined, { numeric: true }));
+      return { alarms, locks };
+    });
+  },
+
+  // A temperature in °C (Home Assistant may be set to °F)
+  _scrToC(t) { return /F/.test(this._hass?.config?.unit_system?.temperature || '') ? (t - 32) * 5 / 9 : t; },
+  // The colour for a temperature: blue when cold, cyan, green when comfortable, yellow, orange, red when hot
+  _scrTempColour(t) {
+    const c = this._scrToC(Number(t));
+    const stops = [[12, [110, 168, 255]], [16, [120, 214, 240]], [19, [140, 232, 170]], [21, [255, 224, 130]], [23, [255, 170, 100]], [26, [255, 110, 100]]];
+    if (!Number.isFinite(c)) return '#ffffff';
+    if (c <= stops[0][0]) return 'rgb(' + stops[0][1] + ')';
+    for (let i = 1; i < stops.length; i++) {
+      if (c <= stops[i][0]) {
+        const [t0, a] = stops[i - 1], [t1, b] = stops[i], f = (c - t0) / (t1 - t0);
+        return 'rgb(' + a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(',') + ')';
+      }
+    }
+    return 'rgb(' + stops[stops.length - 1][1] + ')';
+  },
+
+  // The group something belongs to: the first Home Assistant group (group.…) that has one of its entities in it,
+  // or else its room's floor. Empty when there's neither.
+  _scrGroupName(ids, areaId) {
+    const h = this._hass;
+    if (!this._scrGroupIdx || this._scrGroupIdx.states !== h?.states) {
+      const idx = new Map();
+      for (const [gid, g] of Object.entries(h?.states || {})) {
+        if (!gid.startsWith('group.') || this._scrSkip(gid)) continue;
+        const members = g.attributes?.entity_id;
+        if (!Array.isArray(members) || members.length > 60) continue;
+        const name = String(g.attributes?.friendly_name || gid.slice(6).replace(/_/g, ' '));
+        members.forEach(m => { if (!idx.has(m)) idx.set(m, name); });
+      }
+      this._scrGroupIdx = { states: h?.states, idx };
+    }
+    for (const id of ids) { const g = this._scrGroupIdx.idx.get(id); if (g) return g; }
+    const fl = areaId ? h?.areas?.[areaId]?.floor_id : null;
+    return fl ? (h?.floors?.[fl]?.name || '') : '';
+  },
+  // Puts new rows into a list, changing only the ones that are different, so the rest don't move or flicker
+  _scrPatch(box, html) {
+    const t = document.createElement('template');
+    t.innerHTML = html;
+    const nw = [...t.content.children], old = [...box.children];
+    if (old.length !== nw.length || old.some((o, i) => o.className !== nw[i].className || o.tagName !== nw[i].tagName)) { box.replaceChildren(...nw); return; }
+    old.forEach((o, i) => { if (o.outerHTML !== nw[i].outerHTML) o.replaceWith(nw[i]); });
+  },
+  // Keeps a list in the order it was first shown in on this screen; anything new goes at the end
+  _scrStable(memo, list, key) {
+    if (!memo.order) memo.order = new Map();
+    list.forEach(x => { const k = key(x); if (!memo.order.has(k)) memo.order.set(k, memo.order.size); });
+    return list.slice().sort((a, b) => memo.order.get(key(a)) - memo.order.get(key(b)));
+  },
+  // Puts a list into its groups, in floor order (lowest first) or else by name, keeping each group's own order
+  _scrGrouped(list, fn) {
+    const groups = new Map();
+    list.forEach(x => { const k = fn(x) || ''; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
+    const level = name => { const f = Object.values(this._hass?.floors || {}).find(f => f.name === name); return f && Number.isFinite(Number(f.level)) ? Number(f.level) : null; };
+    return [...groups.entries()].map(([name, items]) => ({ name, items }))
+      .sort((a, b) => (!a.name) - (!b.name) || ((level(a.name) ?? 99) - (level(b.name) ?? 99)) || a.name.localeCompare(b.name));
+  },
+
+
+  // A picture from Home Assistant (an entity's entity_picture) as a full address
+  _scrPic(pic) {
+    if (!pic) return '';
+    if (/^(https?:|data:)/.test(pic)) return pic;
+    try { return this._hass?.hassUrl ? this._hass.hassUrl(pic) : pic; } catch (_) { return pic; }
+  },
+
+  // Each room with an occupancy or presence sensor (or a motion sensor: someone counts as there for five
+  // minutes after the last movement), and whether someone's in it and since when
+  _scrOccupancy() {
+    return this._scrMemo('occupancy', () => {
+      const rooms = new Map(), now = Date.now();
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (!id.startsWith('binary_sensor.') || this._scrSkip(id)) continue;
+        const dc = s.attributes?.device_class;
+        if (dc !== 'occupancy' && dc !== 'presence' && dc !== 'motion') continue;
+        if (s.state === 'unavailable' || s.state === 'unknown') continue;
+        const room = this._scrArea(id);
+        if (!room) continue;
+        const changed = new Date(s.last_changed || now).getTime();
+        const on = s.state === 'on' || (dc === 'motion' && now - changed < 5 * 60000);
+        if (!rooms.has(room)) rooms.set(room, { room, on: false, since: 0 });
+        const r = rooms.get(room);
+        if (on) { r.on = true; if (s.state === 'on' && (!r.since || changed < r.since)) r.since = changed; }
+      }
+      return [...rooms.values()].sort((a, b) => (b.on - a.on) || a.room.localeCompare(b.room));
+    });
+  },
+
+  // Fans that are on: fan entities (with their speed and oscillation), and switches that run a fan (a smart
+  // plug named for one, or given a fan icon). Switches shown as fans with Home Assistant's Switch as X are
+  // already fans, and their switch is hidden, so nothing is counted twice.
+  _scrFans() {
+    return this._scrMemo('fans', () => {
+      const out = [];
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (this._scrSkip(id) || s.state !== 'on') continue;
+        const room = this._scrArea(id);
+        if (id.startsWith('fan.')) {
+          const p = Number(s.attributes?.percentage);
+          out.push({ id, room, name: this._scrName(id, room), pct: Number.isFinite(p) && p > 0 ? Math.round(p) : null, osc: s.attributes?.oscillating === true });
+        } else if (id.startsWith('switch.')) {
+          const icon = this._hass?.entities?.[id]?.icon || s.attributes?.icon || '';
+          if (!/\bfans?\b|_fan|fan_/i.test(this._scrText(id)) && !/mdi:fan/.test(icon)) continue;
+          let name = this._scrName(id, room).replace(/\s*(smart\s*)?(plug|socket|switch|outlet)$/i, '').trim();
+          out.push({ id, room, name: name || this._scrName(id, room), pct: null, osc: false });
+        }
+      }
+      return out.sort((a, b) => (a.room || '￿').localeCompare(b.room || '￿') || a.name.localeCompare(b.name, undefined, { numeric: true }));
+    });
+  },
+
+  // Plants that need attention: the Plant integration's plants with a problem, and soil moisture sensors
+  // reading under 20% (on a device that isn't already a plant)
+  _scrPlants() {
+    return this._scrMemo('plants', () => {
+      const out = [], plantDevs = new Set();
+      const states = this._hass?.states || {};
+      for (const [id, s] of Object.entries(states)) {
+        if (!id.startsWith('plant.') || this._scrSkip(id)) continue;
+        const dev = this._hass?.entities?.[id]?.device_id;
+        if (dev) plantDevs.add(dev);
+        if (s.state !== 'problem') continue;
+        const room = this._scrArea(id);
+        const prob = String(s.attributes?.problem || 'Needs attention').split(',')[0].trim().replace(/_/g, ' ');
+        const m = Number(s.attributes?.moisture);
+        out.push({ id, room, name: this._scrName(id, room), pct: /moist/i.test(prob) && Number.isFinite(m) ? Math.round(m) : null, problem: prob.charAt(0).toUpperCase() + prob.slice(1) });
+      }
+      for (const [id, s] of Object.entries(states)) {
+        if (!id.startsWith('sensor.') || this._scrSkip(id) || s.attributes?.device_class !== 'moisture' || s.attributes?.unit_of_measurement !== '%') continue;
+        const dev = this._hass?.entities?.[id]?.device_id;
+        if (dev && plantDevs.has(dev)) continue;
+        const v = Number(s.state);
+        if (!Number.isFinite(v) || v >= 20) continue;
+        const room = this._scrArea(id);
+        const d = dev ? this._hass?.devices?.[dev] : null;
+        let name = String(d?.name_by_user || d?.name || s.attributes?.friendly_name || id.split('.')[1]).replace(/\s*(soil\s*)?moisture$/i, '').trim();
+        if (room && name.toLowerCase().startsWith(room.toLowerCase() + ' ')) name = name.slice(room.length + 1);
+        out.push({ id, room, name: name.charAt(0).toUpperCase() + name.slice(1), pct: Math.round(v), problem: 'Dry' });
+      }
+      return out.sort((a, b) => (a.pct ?? -1) - (b.pct ?? -1));
+    });
+  },
+
+  // Blinds, curtains, shades, shutters, awnings and windows that are open (garage doors and gates are on Doors
+  // & Windows), with how far open
+  _scrCovers() {
+    return this._scrMemo('covers', () => {
+      const open = [];
+      let closed = 0;
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (!id.startsWith('cover.') || this._scrSkip(id)) continue;
+        if (/^(garage|gate|door)$/.test(s.attributes?.device_class || '')) continue;
+        if (s.state === 'closed' || s.state === 'closing') { closed++; continue; }
+        if (s.state !== 'open' && s.state !== 'opening') continue;
+        const room = this._scrArea(id);
+        const pos = Number(s.attributes?.current_position);
+        open.push({ id, room, name: this._scrName(id, room), pct: Number.isFinite(pos) ? Math.round(pos) : null, label: s.state === 'opening' ? 'Opening' : 'Open' });
+      }
+      open.sort((a, b) => (a.room || '￿').localeCompare(b.room || '￿') || a.name.localeCompare(b.name, undefined, { numeric: true }));
+      return { open, closed };
+    });
+  },
+
+  // Robot vacuums that are out (cleaning, returning, paused or stuck), with their battery
+  _scrVacuums() {
+    return this._scrMemo('vacuums', () => {
+      const out = [];
+      const words = { cleaning: 'Cleaning', returning: 'Returning to dock', paused: 'Paused', error: 'Needs help', idle: 'Idle' };
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (!id.startsWith('vacuum.') || this._scrSkip(id)) continue;
+        if (!/^(cleaning|returning|paused|error)$/.test(s.state)) continue;
+        let bat = Number(s.attributes?.battery_level);
+        if (!Number.isFinite(bat)) {
+          const dev = this._hass?.entities?.[id]?.device_id;
+          const bs = dev ? Object.entries(this._hass?.entities || {}).find(([eid, e]) => e.device_id === dev && eid.startsWith('sensor.') && this._hass?.states?.[eid]?.attributes?.device_class === 'battery') : null;
+          bat = bs ? Number(this._hass?.states?.[bs[0]]?.state) : NaN;
+        }
+        out.push({ id, name: this._scrName(id, ''), bat: Number.isFinite(bat) ? Math.round(bat) : null, status: words[s.state] || s.state });
+      }
+      return out;
+    });
+  },
+
+  // Ink, toner and drums under 20%, lowest first, found by their names
+  _scrInk() {
+    return this._scrMemo('ink', () => {
+      const out = [];
+      for (const [id, s] of Object.entries(this._hass?.states || {})) {
+        if (!id.startsWith('sensor.') || this._scrSkip(id) || s.attributes?.unit_of_measurement !== '%') continue;
+        const nm = id + ' ' + (s.attributes?.friendly_name || '');
+        if (!/\b(ink|toner|cartridge|drum)\b|_ink|_toner|_cartridge|_drum/i.test(nm)) continue;
+        const v = Number(s.state);
+        if (!Number.isFinite(v) || v >= 20) continue;
+        const dev = this._hass?.entities?.[id]?.device_id ? this._hass?.devices?.[this._hass.entities[id].device_id] : null;
+        const printer = String(dev?.name_by_user || dev?.name || 'Printer');
+        let name = String(s.attributes?.friendly_name || id.split('.')[1].replace(/_/g, ' '));
+        if (name.toLowerCase().startsWith(printer.toLowerCase() + ' ')) name = name.slice(printer.length + 1);
+        out.push({ id, printer, name: name.charAt(0).toUpperCase() + name.slice(1), pct: Math.round(v) });
+      }
+      return out.sort((a, b) => a.pct - b.pct);
+    });
+  },
+
+  // Whether a camera is a doorbell's: its name, entity ID or icon (set in Home Assistant, such as
+  // mdi:doorbell-video), or its device's name or model, says doorbell; or its device has a doorbell event
+  _scrIsBell(id) {
+    const h = this._hass, s = h?.states?.[id], e = h?.entities?.[id];
+    const d = e?.device_id ? h?.devices?.[e.device_id] : null;
+    const txt = [id, s?.attributes?.friendly_name, s?.attributes?.icon, e?.icon, e?.name, d?.name, d?.name_by_user, d?.model].filter(Boolean).join(' ');
+    if (/door[\s_-]?bell/i.test(txt)) return true;
+    if (!e?.device_id) return false;
+    return Object.entries(h?.entities || {}).some(([rid, re]) => re.device_id === e.device_id && rid.startsWith('event.') && h?.states?.[rid]?.attributes?.device_class === 'doorbell');
+  },
+  // One per camera: the same camera often turns up several times (its HomeKit, live view, snapshot and last
+  // recording entities), so they're put together, by device or by name once words like those are taken off, and
+  // the one with the newest picture is shown (HomeKit, before a snapshot or the last recording; live views are
+  // never shown),
+  // named for the camera ("Back Yard"). A doorbell when any of them is.
+  _scrCamGroups() {
+    return this._scrMemo('camgroups', () => {
+      const h = this._hass, states = h?.states || {};
+      const extra = /\b(cameras?|cam|homekit|home\s*kit|live(\s*view|\s*stream)?|stream|snapshots?|last\s*(recording|event|motion|ding|capture)|recording|still|image|picture|preview|hd|sd|high|low|main|sub|fluent|clear|rtsp)\b/gi;
+      const stem = n => String(n || '').replace(/door[\s_-]*bell/gi, 'door').replace(/_/g, ' ').replace(extra, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().toLowerCase();
+      const rank = n => /homekit|home\s*kit/i.test(n) ? 0 : /stream/i.test(n) ? 1 : /snapshot|last\s*(recording|event|motion|ding|capture)|recording|still/i.test(n) ? 3 : 2;
+      const groups = new Map(), devKey = new Map();
+      for (const [id, s] of Object.entries(states)) {
+        if (!id.startsWith('camera.') || this._scrSkip(id) || s.state === 'unavailable' || !s.attributes?.entity_picture) continue;
+        const full = String(s.attributes?.friendly_name || id.slice(7).replace(/_/g, ' '));
+        // live views are left out
+        if (/\blive\b|_live\b|live[\s_]*(view|stream)/i.test(full + ' ' + id)) continue;
+        const dev = h?.entities?.[id]?.device_id;
+        const st = stem(full) || stem(id.slice(7)) || id;
+        // the same device, or the same name: one camera
+        const key = (dev && devKey.get(dev)) || st;
+        if (dev && !devKey.has(dev)) devKey.set(dev, key);
+        if (!groups.has(key)) groups.set(key, { key, ids: [], bell: false });
+        const g = groups.get(key);
+        g.ids.push({ id, full, r: rank(full + ' ' + id) });
+        if (this._scrIsBell(id)) g.bell = true;
+      }
+      return [...groups.values()].map(g => {
+        const best = g.ids.sort((a, b) => a.r - b.r || a.full.length - b.full.length)[0];
+        // the camera's own name, without the words for the kind of picture
+        let name = best.full.replace(extra, ' ').replace(/\s{2,}/g, ' ').trim();
+        const room = this._scrArea(best.id);
+        if (room && name.toLowerCase().startsWith(room.toLowerCase() + ' ') && name.length > room.length + 1) name = name.slice(room.length + 1);
+        name = name ? name.charAt(0).toUpperCase() + name.slice(1) : this._scrName(best.id, '');
+        const snap = best.r === 3;
+        return { id: best.id, name, bell: g.bell, ids: g.ids.map(x => x.id), pic: this._scrPic(states[best.id].attributes.entity_picture), snap, taken: snap ? this._scrCamTaken(best.id) : 0 };
+      }).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    });
+  },
+  // When a snapshot camera's picture was taken: from its own attributes when it says, else the latest motion,
+  // ring or activity on the same device (an event, a last-motion or last-activity sensor, or a motion sensor)
+  _scrCamTaken(id) {
+    const h = this._hass, states = h?.states || {}, now = Date.now() + 60000;
+    const ok = v => { const t = typeof v === 'number' ? (v < 1e12 ? v * 1000 : v) : new Date(v).getTime(); return Number.isFinite(t) && t > 946684800000 && t <= now ? t : 0; };
+    const a = states[id]?.attributes || {};
+    let best = 0;
+    for (const [k, v] of Object.entries(a)) if (/last.?(snapshot|capture|update|recording|record|event|motion|image)|captured|snapshot.?time|image.?last.?updated|timestamp/i.test(k)) best = Math.max(best, ok(v));
+    if (best) return best;
+    const dev = h?.entities?.[id]?.device_id;
+    if (!dev) return 0;
+    for (const [rid, re] of Object.entries(h?.entities || {})) {
+      if (re.device_id !== dev || rid === id) continue;
+      const s = states[rid];
+      if (!s) continue;
+      const nm = rid + ' ' + (s.attributes?.friendly_name || '');
+      if (rid.startsWith('event.')) best = Math.max(best, ok(s.state));
+      else if (rid.startsWith('sensor.') && s.attributes?.device_class === 'timestamp' && /last|motion|ding|activity|recording|snapshot|event|capture/i.test(nm)) best = Math.max(best, ok(s.state));
+      else if (rid.startsWith('binary_sensor.') && /motion|occupancy|person|ding|doorbell/i.test(nm + ' ' + (s.attributes?.device_class || ''))) best = Math.max(best, s.state === 'on' ? Date.now() : ok(s.last_changed));
+      else if (rid.startsWith('image.')) best = Math.max(best, ok(s.attributes?.image_last_updated || s.state));
+    }
+    return best;
+  },
+  // Every doorbell: each doorbell camera, always, with when it rang if that was in the last half hour (from a
+  // doorbell event entity, or a doorbell or ding sensor, on its device or in its room); and a doorbell with no
+  // camera only for half an hour after it rings
+  _scrDoorbells() {
+    return this._scrMemo('doorbells', () => {
+      const h = this._hass, states = h?.states || {}, now = Date.now();
+      const areaOf = id => this._scrAreaId?.(id) || '';
+      const devOf = id => h?.entities?.[id]?.device_id || '';
+      const out = this._scrCamGroups().filter(g => g.bell)
+        .map(g => ({ id: g.id, name: g.name, pic: g.pic, at: null, snap: g.snap, taken: g.taken, devs: g.ids.map(devOf).filter(Boolean), area: areaOf(g.id) }));
+      for (const [id, s] of Object.entries(states)) {
+        if (this._scrSkip(id)) continue;
+        let at = NaN;
+        if (id.startsWith('event.') && s.attributes?.device_class === 'doorbell') at = new Date(s.state).getTime();
+        else if (id.startsWith('binary_sensor.') && /doorbell|\bding\b|_ding/i.test(id + ' ' + (s.attributes?.friendly_name || '')) && s.attributes?.device_class !== 'battery') at = s.state === 'on' ? now : new Date(s.last_changed).getTime() - 1;
+        if (!Number.isFinite(at) || now - at > 30 * 60000 || now - at < -60000) continue;
+        // its camera: on the same device, else in the same room, else the only doorbell camera there is
+        const dev = devOf(id), area = areaOf(id);
+        const cam = (dev && out.find(c => c.devs?.includes(dev))) || (area && out.find(c => c.area === area)) || (out.filter(c => c.pic).length === 1 ? out.find(c => c.pic) : null);
+        if (cam) { if (!cam.at || at > cam.at) cam.at = at; continue; }
+        const d = dev ? h?.devices?.[dev] : null;
+        const name = String(d?.name_by_user || d?.name || s.attributes?.friendly_name || 'Doorbell').replace(/\s*(doorbell|ding|ring|button)$/i, '').trim() || 'Doorbell';
+        out.push({ id, name, pic: '', at, devs: dev ? [dev] : [], area });
+      }
+      return out.sort((a, b) => (!!b.at - !!a.at) || a.name.localeCompare(b.name, undefined, { numeric: true }));
+    });
+  },
+
+  // Every camera that's working, by name (doorbell cameras are on the Doorbell screen while that's on)
+  _scrCameras() {
+    return this._scrMemo('cameras', () => {
+      const want = Array.isArray(this._config?.screensaver_screens) && this._config.screensaver_screens.length ? this._config.screensaver_screens : null;
+      const bells = !want || want.includes('doorbell');
+      return this._scrCamGroups().filter(g => !(bells && g.bell)).map(g => ({ id: g.id, name: g.name, pic: g.pic, at: null, snap: g.snap, taken: g.taken }));
+    });
+  },
+
+
+  // Every door, window, garage door and opening sensor in Home Assistant, with its room (from its own area or
+  // its device's), its name without the room's, and whether it's open. Hidden and unavailable ones are left out.
+  _scrOpenings() {
+    const h = this._hass;
+    const now = Date.now();
+    if (this._scrOpenMemo && this._scrOpenMemo.states === h?.states && now - this._scrOpenMemo.at < 2000) return this._scrOpenMemo.v;
+    const all = [];
+    const kinds = { door: 'door', window: 'window', garage_door: 'garage', opening: 'door' };
+    for (const [id, s] of Object.entries(h?.states || {})) {
+      if (!id.startsWith('binary_sensor.')) continue;
+      const kind = kinds[s.attributes?.device_class];
+      if (!kind || s.state === 'unavailable' || s.state === 'unknown') continue;
+      const reg = h.entities?.[id];
+      if (reg?.hidden || reg?.entity_category) continue;
+      const areaId = reg?.area_id || (reg?.device_id ? h.devices?.[reg.device_id]?.area_id : null);
+      const room = areaId ? (h.areas?.[areaId]?.name || '') : '';
+      let name = String(s.attributes?.friendly_name || id.split('.')[1].replace(/_/g, ' '));
+      if (room && name.toLowerCase().startsWith(room.toLowerCase() + ' ')) name = name.slice(room.length + 1);
+      name = name.replace(/\s+(contact|sensor|contact sensor|opening)$/i, '').trim() || name;
+      name = name.charAt(0).toUpperCase() + name.slice(1);
+      all.push({ id, room, name, kind, on: s.state === 'on', since: new Date(s.last_changed || now).getTime() });
+    }
+    const open = all.filter(x => x.on).sort((a, b) => a.since - b.since);
+    const v = { all, open, closed: all.length - open.length };
+    this._scrOpenMemo = { states: h?.states, at: now, v };
+    return v;
+  },
+
+  _scrAgo(t) {
+    const m = Math.max(0, Math.floor((Date.now() - t) / 60000));
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min';
+    const hr = Math.floor(m / 60);
+    if (hr < 24) return hr + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
+    const d = Math.floor(hr / 24);
+    return d + (d === 1 ? ' day' : ' days');
+  },
+
+  // A queued song's artwork: the queue's own picture, or else the album cover looked up the same way the
+  // player does (Music Assistant, then Apple Music), kept for next time
+  _scrArt(x) {
+    let img = typeof x.image === 'string' ? x.image.trim() : '';
+    if (img && !/^(https?:|data:|\/|blob:)/.test(img) && /^[A-Za-z0-9+/=\s]{100,}$/.test(img)) img = 'data:image/jpeg;base64,' + img.replace(/\s+/g, '');
+    if (img && img.startsWith('/')) { try { img = this._hass?.hassUrl ? this._hass.hassUrl(img) : img; } catch (_) {} }
+    if (img) return img;
+    if (!x.artist && !x.title) return '';
+    const key = [x.artist, x.album || x.title].filter(Boolean).join('|').toLowerCase();
+    const got = this._itunesArtCache?.[key];
+    if (got) return String(got);
+    if (!this._itunesArtCache || !(key in this._itunesArtCache)) { try { this._fetchItunesArt?.(x.artist || '', x.album || '', x.title || '', { skipStaleGuard: true }); } catch (_) {} }
+    return '';
+  },
+
+  _scrSongKey() {
+    const a = this._hass?.states?.[this._entity]?.attributes || {};
+    return [this._entity, a.media_title, a.media_artist, a.media_content_id].map(x => x || '').join('|');
+  },
+
+  // The next three songs in the queue (Music Assistant), looked up once for each song and kept a minute
+  _scrNextFor(key) {
+    const m = this._scrNextMemo;
+    if (m && m.key === key && (Date.now() - m.at < 60000 || m.busy)) return m.items;
+    const items = m?.key === key ? m.items : [];
+    this._scrNextMemo = { key, at: Date.now(), items, busy: true };
+    this._scrFetchNext().then(list => { if (this._scrNextMemo?.key === key) this._scrNextMemo = { key, at: Date.now(), items: list || [], busy: false }; })
+      .catch(() => { if (this._scrNextMemo?.key === key) this._scrNextMemo.busy = false; });
+    return items;
+  },
+  async _scrFetchNext() {
+    const eid = this._entity;
+    const cur = this._hass?.states?.[eid]?.attributes || {};
+    const conn = this._hass?.connection;
+    if (!conn || !eid) return [];
+    if (this._hass?.services?.mass_queue?.get_queue_items) {
+      try {
+        const res = await conn.sendMessagePromise({ type: 'call_service', domain: 'mass_queue', service: 'get_queue_items',
+          service_data: { entity: eid, limit_before: 1, limit_after: 3 }, return_response: true });
+        const raw = res?.response?.[eid] || res?.response || [];
+        if (Array.isArray(raw) && raw.length) {
+          let at = raw.findIndex(x => x.active === true || x.state === 'playing');
+          if (at === -1 && cur.media_content_id) at = raw.findIndex(x => (x.media_content_id || x.uri) === cur.media_content_id);
+          const t = (cur.media_title || '').trim().toLowerCase();
+          if (at === -1 && t) at = raw.findIndex(x => (x.media_title || x.name || '').trim().toLowerCase() === t);
+          if (at >= 0) return raw.slice(at + 1, at + 4).map(x => ({ title: x.media_title || x.name || '', artist: x.media_artist || x.artist || '', album: x.media_album_name || x.album || '', image: x.media_image || x.local_image_encoded || x.thumbnail || x.image || '' })).filter(x => x.title);
+        }
+      } catch (_) {}
+    }
+    if (this._hass?.services?.music_assistant?.get_queue) {
+      try {
+        const res = await conn.sendMessagePromise({ type: 'call_service', domain: 'music_assistant', service: 'get_queue',
+          service_data: { entity_id: eid }, return_response: true });
+        const n = (res?.response?.[eid] || {}).next_item;
+        if (n) {
+          const img = n.media_item?.image?.path || n.media_item?.image || n.image?.path || n.image || '';
+          return [{ title: n.media_item?.name || n.name || '', artist: (n.media_item?.artists || []).map(x => x.name).join(', '), image: typeof img === 'string' ? img : '' }].filter(x => x.title);
+        }
+      } catch (_) {}
+    }
+    return [];
+  },
+
+  // The playing song's timed lyrics (the ones the card already uses), looked up once for each song
+  _scrLyrics() {
+    const a = this._hass?.states?.[this._entity]?.attributes || {};
+    if (!a.media_artist || !a.media_title) return null;
+    const e = this._lyricsCachedEntry?.(a.media_artist, a.media_title);
+    if (e?.type === 'synced' && e.lines?.length) return e.lines;
+    const key = (a.media_artist + '|' + a.media_title).toLowerCase();
+    if (!this._scrLyrAsked) this._scrLyrAsked = new Set();
+    if (!this._scrLyrAsked.has(key)) {
+      this._scrLyrAsked.add(key);
+      try { Promise.resolve(this._fsLyricsFetch?.(a.media_artist, a.media_title, a.media_album_name || '', Math.round(Number(a.media_duration) || 0))).catch(() => {}); } catch (_) {}
+    }
+    return null;
+  },
 });
 
 K.ready.saver = true;
