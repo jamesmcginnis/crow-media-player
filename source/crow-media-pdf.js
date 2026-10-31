@@ -81,6 +81,40 @@ Object.assign(K.Card.prototype, {
     } catch (_) { return null; }
   },
 
+  // The rows the info panel marks for the PDFs (data-pdf-row="Year" and so on: the year, label, length and genres
+  // under the title, the album, the audio quality), as [LABEL, value], with a test for whether a piece of the
+  // panel belongs to one of them (so it isn't printed again further down)
+  _pdfTaggedRows(root) {
+    const rows = [], els = [];
+    root?.querySelectorAll?.('[data-pdf-row]').forEach(e => {
+      const lab = String(e.dataset.pdfRow || '').trim();
+      let v = e.dataset.pdfValue || (e.classList.contains('ip-tags') ? [...e.children].map(c => c.textContent.trim()).filter(Boolean).join(', ') : e.textContent);
+      v = String(v || '').replace(/\s+/g, ' ').trim();
+      if (!lab || !v) return;
+      els.push(e);
+      const have = rows.find(r => r[0] === lab.toUpperCase());
+      if (have) have[1] += ', ' + v; else rows.push([lab.toUpperCase(), v]);
+    });
+    // a piece of the panel is one of them when it's inside one, or holds nothing but them (the line of
+    // year, label and length is one piece holding three)
+    const has = el => {
+      if (!el) return false;
+      if (els.some(e => e === el || e.contains(el))) return true;
+      const inside = els.filter(e => el.contains(e));
+      if (!inside.length) return false;
+      const rest = inside.reduce((t, e) => t.replace(e.textContent, ''), el.textContent || '');
+      return !rest.replace(/\s+/g, '');
+    };
+    return { rows, has };
+  },
+  // How wide a PDF's label column needs to be for its longest label (8 pt bold, with room either side), so a
+  // long label like AUDIO QUALITY never runs into its value; at least `min`, and never more than `max`
+  _pdfLabelW(doc, labels, min, max) {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+    const w = Math.ceil(labels.reduce((m, l) => Math.max(m, doc.getTextWidth(String(l || ''))), 0)) + 18;
+    return Math.max(min, Math.min(max, w));
+  },
+
   // Export Lyrics to PDF: the artwork with the title and artist beside it,
   // then the lyrics in a single column, running onto further pages as needed.
   async _exportLyricsPDF(args) {
@@ -153,13 +187,18 @@ Object.assign(K.Card.prototype, {
     // Header — the same layout as Export Info to PDF: the artwork, with the
     // title, artist and the grey Year / Label / Length / Genre rows beside
     // it, all taken from the info panel that's open for this track.
-    const infoBlocks = this._collectInfoPanelBlocks(this.shadowRoot?.getElementById('infoContent') || document.createElement('div'));
+    const infoRoot = this.shadowRoot?.getElementById('infoContent') || document.createElement('div');
+    const infoBlocks = this._collectInfoPanelBlocks(infoRoot);
+    const tagged = this._pdfTaggedRows(infoRoot);
     const heroSrc = infoBlocks.find(b => b.type === 'img' && b.w >= 60)?.src;
     const infoTexts = infoBlocks.filter(b => b.type === 'text');
     const isLbl = b => b.upper && b.size <= 12;
     const kv = [];
     let artistLine = '';
-    {
+    // the rows the panel marks (year, label, length, genres, album, audio quality); otherwise, for a panel
+    // without them, the small labels with a value beside them under the title
+    if (tagged.rows.length) tagged.rows.forEach(([l, v]) => kv.push([clean(l), clean(v)]));
+    else {
       const tIdx = infoTexts.findIndex(b => b.size >= 15 && b.bold);
       for (let k = tIdx + 1; tIdx !== -1 && k < infoTexts.length; k++) {
         const b = infoTexts[k], nx = infoTexts[k + 1];
@@ -191,12 +230,12 @@ Object.assign(K.Card.prototype, {
         return { lab, valLines, boxH: Math.max(20, valLines.length * 13 + 7) };
       });
     };
-    let colX = marginX, colW = contentW, artBottom = y, labelW = 112;
+    let colX = marginX, colW = contentW, artBottom = y, labelW = this._pdfLabelW(doc, rows.map(r => r[0]), 112, contentW * 0.45);
     let laid = measure(colW, labelW);
     if (img) {
       // First guess at the column width, then size the artwork to the rows
       const guess = 92;
-      labelW = 64;
+      labelW = this._pdfLabelW(doc, rows.map(r => r[0]), 64, (contentW - guess - artGap) * 0.45);
       laid = measure(contentW - guess - artGap, labelW);
       const rowsH = laid.reduce((h, r) => h + r.boxH, 0) + rowGap * Math.max(0, laid.length - 1);
       const side = Math.max(64, Math.min(110, rowsH || 80));
@@ -205,7 +244,7 @@ Object.assign(K.Card.prototype, {
         doc.addImage(img.data, 'JPEG', marginX, y, w, h);
         colX = marginX + w + artGap; colW = contentW - w - artGap; artBottom = y + h;
         laid = measure(colW, labelW);
-      } catch (_) { colX = marginX; colW = contentW; labelW = 112; laid = measure(colW, labelW); }
+      } catch (_) { colX = marginX; colW = contentW; labelW = this._pdfLabelW(doc, rows.map(r => r[0]), 112, contentW * 0.45); laid = measure(colW, labelW); }
     }
     let ty = y + 13;   // first row's baseline, its box level with the artwork's top
     const centred = !img || colX === marginX;   // no artwork beside the rows: centre them, like the lyrics below
@@ -1227,7 +1266,8 @@ Object.assign(K.Card.prototype, {
     if (posterSrc) preview?.status?.('Fetching artwork\u2026');
     const img = posterSrc ? await this._pdfImageData(posterSrc) : null;
     preview?.status?.('Building pages\u2026');
-    const artGap = 16, rowGap = 3, labelW = 64;
+    const artGap = 16, rowGap = 3;
+    const labelW = this._pdfLabelW(doc, rows.map(r => String(r[0] || '').toUpperCase()), 64, (contentW - 90 - artGap) * 0.45);
     let colX = marginX, colW = contentW;
     const measure = w => {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
@@ -1418,28 +1458,33 @@ Object.assign(K.Card.prototype, {
       return texts.filter(t => box.contains(t.el)).length === 2;
     };
     const used = new Set();
+    // the rows the panel marks for the PDFs go beside the artwork, and aren't printed again below
+    const tagged = this._pdfTaggedRows(r.getElementById('infoContent'));
+    texts.forEach((t, k) => { if (tagged.has(t.el)) used.add(k); });
     const tIdx = texts.findIndex(b => b.size >= 15 && b.bold);
     let subTxt = '';
-    const kvRows = [];
+    const scraped = [];
     if (tIdx !== -1) {
       used.add(tIdx);
       for (let k = tIdx + 1; k < texts.length; k++) {
+        if (used.has(k)) continue;
         const b = texts[k], nx = texts[k + 1];
         if (isLbl(b)) {
           const v = nx ? clean(nx.text) : '';
           const same = nx && !isLbl(nx) && nx.type !== 'row' && boxOfTwo(b, nx);
-          if (!same || !v || v.length > 60 || nx.url) break;   // a section heading or long value ends the header
-          kvRows.push([clean(b.text).toUpperCase(), v]);
+          if (!same || !v || v.length > 60 || nx.url || tagged.rows.length) break;   // a section heading or long value ends the header
+          scraped.push([clean(b.text).toUpperCase(), v]);
           used.add(k); used.add(k + 1);
           k++;
           continue;
         }
         if (b.size >= 15 && b.bold) break;
-        if (kvRows.length) break;
+        if (scraped.length || subTxt) break;
         const t = clean(b.text);
         if (!subTxt && t && t.length <= 120) { subTxt = t; used.add(k); }
       }
     }
+    const kvRows = tagged.rows.map(([l, v]) => [clean(l), clean(v)]).concat(scraped);
     const mastTitle = tIdx !== -1 ? clean(texts[tIdx].text) : 'Crow Media Player';
     const mastSub = tIdx !== -1 ? subTxt : clean(headerText);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
@@ -1471,10 +1516,10 @@ Object.assign(K.Card.prototype, {
         return { lab, valLines, boxH: Math.max(20, valLines.length * 13 + 7) };
       });
     };
-    let hdrX = marginX, hdrW = contentW, hdrLabelW = 112, artBottom = y;
+    let hdrX = marginX, hdrW = contentW, hdrLabelW = this._pdfLabelW(doc, kvRows.map(k => k[0]), 112, contentW * 0.45), artBottom = y;
     let laidRows = measureRows(hdrW, hdrLabelW);
     if (heroImg) {
-      hdrLabelW = 64;
+      hdrLabelW = this._pdfLabelW(doc, kvRows.map(k => k[0]), 64, (contentW - 92 - artGap) * 0.45);
       laidRows = measureRows(contentW - 92 - artGap, hdrLabelW);
       const rowsH = laidRows.reduce((h, rw) => h + rw.boxH, 0) + rowGap * Math.max(0, laidRows.length - 1);
       const side = kvRows.length ? Math.max(64, Math.min(110, rowsH)) : 110;
@@ -1483,7 +1528,7 @@ Object.assign(K.Card.prototype, {
         doc.addImage(heroImg.data, 'JPEG', marginX, y, w, h);
         hdrX = marginX + w + artGap; hdrW = contentW - w - artGap; artBottom = y + h;
         laidRows = measureRows(hdrW, hdrLabelW);
-      } catch (_) { hdrX = marginX; hdrW = contentW; hdrLabelW = 112; laidRows = measureRows(hdrW, hdrLabelW); }
+      } catch (_) { hdrX = marginX; hdrW = contentW; hdrLabelW = this._pdfLabelW(doc, kvRows.map(k => k[0]), 112, contentW * 0.45); laidRows = measureRows(hdrW, hdrLabelW); }
     }
     let ry = y + 13;
     laidRows.forEach(({ lab, valLines, boxH }) => {
@@ -1550,7 +1595,7 @@ Object.assign(K.Card.prototype, {
           if (inSide && nextText.length > 60) exitSide();
           newPageIfNeeded(30);
           doc.setFillColor(...zebraRgb);
-          const labelW = inSide ? 64 : 112;
+          const labelW = this._pdfLabelW(doc, [text.toUpperCase()], inSide ? 64 : 112, colW * 0.45);
           doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
           const valLines = doc.splitTextToSize(nextText, colW - labelW - 8);
           const boxH = Math.max(20, valLines.length * 13 + 7);

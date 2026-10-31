@@ -1513,7 +1513,7 @@ Include ALL tracks. Use null for unknown fields.`;
     const _albumKnownEmpty = !data._fromDiscogs && data.album && this._aiAlbumTracksCache?.get((data.album + '|' + artistName).toLowerCase())?.empty === true;
     const _showAlbumPill = !!data.album && !_albumKnownEmpty;
     const albumClickHtml = _showAlbumPill
-      ? `<button id="ai-track-album-btn" data-album="${(data.album||'').replace(/"/g,'&quot;')}" data-artist="${(artistName||'').replace(/"/g,'&quot;')}" class="ip-link"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><span>${data.album}</span></button>`
+      ? `<button id="ai-track-album-btn" data-pdf-row="Album" data-album="${(data.album||'').replace(/"/g,'&quot;')}" data-artist="${(artistName||'').replace(/"/g,'&quot;')}" class="ip-link"><svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg><span>${data.album}</span></button>`
       : '';
 
     const isMaForBar = this._maEntityIds?.has(this._entity) || (this._maEntityIds?.size > 0);
@@ -1549,8 +1549,8 @@ Include ALL tracks. Use null for unknown fields.`;
             <div id="ai-track-artist-name" class="ip-link" role="button" data-artist="${(artistName||''). replace(/"/g,'&quot;')}"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg><span>${artistName}</span></div>
             ${albumClickHtml}
           </div>
-          ${metaRows.some(([l]) => l !== 'Album' && l !== 'Genre') ? `<div class="ip-tags" style="margin-top:5px;">${metaRows.filter(([l]) => l !== 'Album' && l !== 'Genre').map(([l,v]) => { const _yt = l === 'Year' && this._aiFeatureOn('info'); /* "This year in music" is AI-only — plain, non-tappable year when AI is off */ return _yt ? `<span id="music-year-box" class="ip-tag" role="button" data-year="${v}" style="color:var(--crow-info-link,#63b3ed);font-weight:600;">${v}</span>` : `<span>${v}</span>`; }).join('')}</div>` : ''}
-          ${(data.genre && data.genre.length) ? `<div class="ip-tags" style="margin-top:2px;opacity:0.85;">${data.genre.map(g => `<span>${g}</span>`).join('')}</div>` : ''}
+          ${metaRows.some(([l]) => l !== 'Album' && l !== 'Genre') ? `<div class="ip-tags" style="margin-top:5px;">${metaRows.filter(([l]) => l !== 'Album' && l !== 'Genre').map(([l,v]) => { const _yt = l === 'Year' && this._aiFeatureOn('info'); /* "This year in music" is AI-only — plain, non-tappable year when AI is off */ return _yt ? `<span id="music-year-box" class="ip-tag" role="button" data-pdf-row="${l}" data-year="${v}" style="color:var(--crow-info-link,#63b3ed);font-weight:600;">${v}</span>` : `<span data-pdf-row="${l}">${v}</span>`; }).join('')}</div>` : ''}
+          ${(data.genre && data.genre.length) ? `<div class="ip-tags" data-pdf-row="Genre" style="margin-top:2px;opacity:0.85;">${data.genre.map(g => `<span>${g}</span>`).join('')}</div>` : ''}
         </div>
       </div>
       <div id="info-audio-quality"></div>

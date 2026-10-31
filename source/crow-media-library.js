@@ -53,10 +53,12 @@ Object.assign(K.Card.prototype, {
     list.unshift({ tab, query: q, ts: Date.now() });
     if (list.length > 50) list = list.slice(0, 50);
     try { localStorage.setItem('crow_media_ma_recent_searches', JSON.stringify(list)); } catch (_) {}
+    this._personalSave?.();
   },
 
   _maClearRecentSearches() {
     try { localStorage.removeItem('crow_media_ma_recent_searches'); } catch (_) {}
+    this._personalSave?.();
   },
 
   _renderRecentSearchesTab(content) {
@@ -120,6 +122,7 @@ Object.assign(K.Card.prototype, {
           const q = (e.query || '').toLowerCase();
           const rest = this._maGetRecentSearches().filter(x => !(x.tab === e.tab && (x.query || '').toLowerCase() === q));
           try { localStorage.setItem('crow_media_ma_recent_searches', JSON.stringify(rest)); } catch (_) {}
+          this._personalSave?.();
           this._renderRecentSearchesTab(content);
         } },
       ], { right: ['rsAgain'], left: ['rsRemove', 'more'] });
@@ -5555,7 +5558,9 @@ Object.assign(K.Card.prototype, {
       this._audioQualityNow().then(q => {
         if (!q || !aqSlot.isConnected) return;
         const wave = '<svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor;flex-shrink:0;"><path d="M22,12L20,13L19,14L18,13L17,16L16,13L15,21L14,13L13,15L12,13L11,17L10,13L9,22L8,13L7,19L6,13L5,14L4,13L2,12L4,11L5,10L6,11L7,5L8,11L9,2L10,11L11,7L12,11L13,9L14,11L15,3L16,11L17,8L18,11L19,10L20,11L22,12Z"/></svg>';
-        aqSlot.innerHTML = `<div style="margin:0 0 14px;">
+        // marked for the PDFs, which show it as an Audio Quality row beside the artwork
+        const _aqTxt = [q.head, q.detail, q.source].filter(Boolean).join(' · ');
+        aqSlot.innerHTML = `<div style="margin:0 0 14px;" data-pdf-row="Audio Quality" data-pdf-value="${esc(_aqTxt)}">
           <div class="ip-sec">Audio Quality</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             ${q.head ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:${q.hiRes ? '#FFD60A' : 'var(--crow-info-link,#63b3ed)'};">${wave}${esc(q.head)}</span>` : ''}
@@ -7215,6 +7220,7 @@ Object.assign(K.Card.prototype, {
     };
     const _saveHistory = (hist) => {
       try { localStorage.setItem(HIST_KEY, JSON.stringify(hist)); } catch (_) {}
+      this._personalSave?.();
     };
     const _addToHistory = (text) => {
       let hist = _loadHistory();

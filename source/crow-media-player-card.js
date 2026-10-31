@@ -112,6 +112,65 @@ async function crowMediaAiGetAll(conn) {
   }
   return out;
 }
+// Your own small lists, kept in Home Assistant so they follow you between devices: recent library searches,
+// announcement history and the songs the AI has already added for each song. One saved entry holds them all
+// ('crow_media_personal'; in the integration's store for each person, or Home Assistant's own user data
+// without it), and each device keeps its own copy for instant reading. The first time a device
+// connects, what it has is added to what's in Home Assistant; after that Home Assistant's copy is the one used,
+// so something removed on one device stays removed on the others.
+const CROW_MEDIA_PERSONAL = 'crow_media_personal', CROW_MEDIA_PERSONAL_SYNCED = 'crow_media_personal_synced';
+const CROW_MEDIA_PERSONAL_KEYS = ['crow_media_ma_recent_searches', 'crow_media_announce_history', 'crow_media_ai_similar_added',
+  'crow_media_ai_same_year_added', 'crow_media_ai_same_genre_added', 'crow_media_ai_same_genre_year_added'];
+let crowMediaPersonalT = 0;
+function crowMediaPersonalRead(k) { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v ?? null; } catch (_) { return null; } }
+// saved two seconds after the last change, so a burst of changes is one save
+function crowMediaPersonalSave(conn) {
+  if (!conn) return;
+  clearTimeout(crowMediaPersonalT);
+  crowMediaPersonalT = setTimeout(() => {
+    const value = {};
+    CROW_MEDIA_PERSONAL_KEYS.forEach(k => { value[k] = crowMediaPersonalRead(k); });
+    crowMediaUserData(conn, { type: 'frontend/set_user_data', key: CROW_MEDIA_PERSONAL, value }).catch(() => {});
+  }, 2000);
+}
+// this device's lists and Home Assistant's together (the first time a device connects)
+function crowMediaPersonalMerge(k, mine, theirs) {
+  if (mine == null) return theirs;
+  if (theirs == null) return mine;
+  if (k === 'crow_media_ma_recent_searches' && Array.isArray(mine) && Array.isArray(theirs)) {
+    const by = new Map();
+    [...theirs, ...mine].forEach(e => { if (!e) return; const id = (e.tab || '') + '|' + String(e.query || '').toLowerCase(); const o = by.get(id); if (!o || (e.ts || 0) > (o.ts || 0)) by.set(id, e); });
+    return [...by.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 50);
+  }
+  if (k === 'crow_media_announce_history' && Array.isArray(mine) && Array.isArray(theirs)) {
+    const by = new Map();
+    [...theirs, ...mine].forEach(e => { if (!e?.text) return; const id = e.text.toLowerCase(); const o = by.get(id); if (!o) by.set(id, { ...e }); else { if ((e.ts || 0) > (o.ts || 0)) Object.assign(o, e, { favourite: o.favourite || e.favourite }); else o.favourite = o.favourite || e.favourite; } });
+    const all = [...by.values()].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return [...all.filter(h => h.favourite), ...all.filter(h => !h.favourite).slice(0, 10)];
+  }
+  if (typeof mine === 'object' && typeof theirs === 'object' && !Array.isArray(mine) && !Array.isArray(theirs)) {
+    const out = { ...theirs };
+    Object.entries(mine).forEach(([key, v]) => { out[key] = Array.isArray(v) && Array.isArray(out[key]) ? [...new Set([...out[key], ...v])] : (out[key] ?? v); });
+    return out;
+  }
+  return theirs;
+}
+async function crowMediaPersonalLoad(conn) {
+  if (!conn) return;
+  const res = await crowMediaUserData(conn, { type: 'frontend/get_user_data', key: CROW_MEDIA_PERSONAL }).catch(() => null);
+  const theirs = res?.value && typeof res.value === 'object' ? res.value : null;
+  let first = false;
+  try { first = !localStorage.getItem(CROW_MEDIA_PERSONAL_SYNCED); } catch (_) {}
+  let upload = !theirs;
+  CROW_MEDIA_PERSONAL_KEYS.forEach(k => {
+    const mine = crowMediaPersonalRead(k), there = theirs ? (theirs[k] ?? null) : null;
+    const v = first || !theirs ? crowMediaPersonalMerge(k, mine, there) : there;
+    if (JSON.stringify(v) !== JSON.stringify(there)) upload = true;
+    try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch (_) {}
+  });
+  try { localStorage.setItem(CROW_MEDIA_PERSONAL_SYNCED, '1'); } catch (_) {}
+  if (upload) crowMediaPersonalSave(conn);
+}
 async function crowMediaAiClear(conn) {
   if (!conn) return;
   const names = await crowMediaAiIndex(conn).catch(() => new Set());
@@ -141,6 +200,16 @@ async function crowFetch(url, opts) {
     delete o.headers; delete o.mode; delete o.credentials;
     const r = await b.hass.fetchWithAuth('/api/' + CROW_MEDIA_DOMAIN + '/fetch?url=' + encodeURIComponent(url), o);
     if (r.status === 413) return window.fetch(url, opts);
+    // Home Assistant couldn't get an answer (the site was down, overloaded or out of its reach): this device
+    // asks the site itself once. Its answer is only used when it's a real one; otherwise Home Assistant's
+    // error is passed on as it was. (Sites that need a key kept on the server just refuse, so nothing changes.)
+    if (r.status === 502 || r.status === 503 || r.status === 504) {
+      try {
+        const d = await window.fetch(url, opts);
+        if (d.ok || d.status === 404) return d;
+      } catch (e) { if (e?.name === 'AbortError') throw e; }
+      return r;
+    }
     if (r.status === 403) {
       let t = '';
       try { t = await r.clone().text(); } catch (_) { t = ''; }
@@ -1071,7 +1140,7 @@ function crowMediaAutoStart(cfg) {
 // checking it answers in time AND still answers in the shape the card reads. Run from the browser,
 // the same way the card reaches each service, so it shows what works on this device.
 // ══════════════════════════════════════════════════════════════════════
-const CROW_MEDIA_VERSION = '0.0.4';
+const CROW_MEDIA_VERSION = '0.0.5';
 console.info('%c CROW MEDIA PLAYER %c v' + CROW_MEDIA_VERSION + ' ', 'background:#007AFF;color:#fff;font-weight:700;border-radius:3px 0 0 3px;padding:2px 4px', 'background:#333;color:#fff;border-radius:0 3px 3px 0;padding:2px 4px');
 
 // tidy away a setting earlier versions saved on this device
@@ -3300,8 +3369,28 @@ class CrowMediaPlayerCard extends HTMLElement {
         this._lastAlbumKey = newAlbumKey;
         this._lastTrackKey = newTrackKey;
       }
+      // In full screen the main player is out of sight, so it's only redrawn when something it shows has changed
+      // (a new song, play or pause, shuffle, volume…), not every time the speaker reports how far into the song it
+      // is or another speaker in the house changes; full screen works the position out for itself. It catches up
+      // in full when full screen closes.
+      // The same while the screensaver fills the screen (it's caught up when the screensaver closes).
+      if (this._fs || this._saverEl?.classList.contains('cs-full')) {
+        const fp = this._fsHassPrint(stateObj);
+        if (fp === this._fsHassFp) return;
+        this._fsHassFp = fp;
+      }
       this.updateContent(stateObj);
     }
+  }
+
+  // what the main player shows about this speaker, leaving out the position ticking along (see set hass)
+  _fsHassPrint(st) {
+    try {
+      const a = st?.attributes || {}, out = {};
+      for (const k in a) if (k !== 'media_position' && k !== 'media_position_updated_at') out[k] = a[k];
+      const ve = this._volEntity, vs = ve && ve !== this._entity ? this._hass?.states?.[ve]?.attributes : null;
+      return JSON.stringify([this._entity, st?.state, out, vs ? [vs.volume_level, vs.is_volume_muted] : 0]);
+    } catch (_) { return String(Math.random()); }
   }
 
   _getIconTheme() {
@@ -4611,7 +4700,8 @@ class CrowMediaPlayerCard extends HTMLElement {
     }
     // Always clamp to duration so the time label never exceeds the song length
     if (duration && pos !== undefined) pos = Math.min(pos, duration);
-    if (duration && pos !== undefined) {
+    // (in full screen the main player's bar and time are hidden, and full screen draws its own)
+    if (duration && pos !== undefined && !this._fs && !this._saverEl?.classList.contains('cs-full')) {
       if (!this._isSeeking) {
         const percent = Math.min((pos / duration) * 100, 100);
         const fill = r.getElementById('progFill');
@@ -4657,6 +4747,19 @@ class CrowMediaPlayerCard extends HTMLElement {
     const albumImg    = r.getElementById('albumImg');
     const mainPh      = r.getElementById('mainPlaceholder');
     const remoteBtn   = r.getElementById('remoteBtn');
+    const _co = r.getElementById('cardOuter');
+    _co?.classList.toggle('remote-on', !!this._remoteMode);
+    // the resize and Full Screen buttons move to the same row as the remote's ✕ (their middles level)
+    const _level = () => {
+      const x = r.getElementById('remoteCloseBtn'), m = r.getElementById('modeBtnAbs');
+      if (!_co || !x || !m || !this._remoteMode || !x.offsetParent || !m.offsetParent) return;
+      _co.style.removeProperty('--rm-cap-top');
+      const xb = x.getBoundingClientRect(), mb = m.getBoundingClientRect();
+      const top = (parseFloat(getComputedStyle(m).top) || 0) + (xb.top + xb.height / 2) - (mb.top + mb.height / 2);
+      if (Number.isFinite(top)) _co.style.setProperty('--rm-cap-top', Math.round(top * 2) / 2 + 'px');
+    };
+    if (this._remoteMode) { requestAnimationFrame(_level); setTimeout(_level, 450); }
+    else _co?.style.removeProperty('--rm-cap-top');
 
     if (this._remoteMode) {
       overlay.classList.remove('hidden');
@@ -5603,6 +5706,8 @@ class CrowMediaPlayerCard extends HTMLElement {
         #cardOuter.cmp-cap > #modeBtnAbs, #cardOuter.cmp-cap > #cmpFsBtn { top: 12px; width: 37px; height: 38px; }
         #cardOuter.cmp-cap > #modeBtnAbs { right: 12px; padding-right: 3px; border-left: 0 !important; border-radius: 0 19px 19px 0 !important; }
         #cardOuter.cmp-cap > #cmpFsBtn { right: 49px; padding-left: 3px; border-right: 0 !important; border-radius: 19px 0 0 19px !important; }
+        /* the remote open: the capsule sits level with the remote's ✕, its middle at the same height (measured) */
+        #cardOuter.cmp-cap.remote-on:not(.mode-compact) > #modeBtnAbs, #cardOuter.cmp-cap.remote-on:not(.mode-compact) > #cmpFsBtn { top: var(--rm-cap-top, 9px); }
         #cardOuter.cmp-cap > #cmpFsBtn::after { content: ''; position: absolute; right: 0; top: 25%; height: 50%; width: 1px; background: var(--crow-overlay-btn-border, rgba(255,255,255,0.22)); opacity: 0.9; }
         #cardOuter.cmp-cap > :is(#modeBtnAbs, #cmpFsBtn) svg { width: 15px; height: 15px; }
         #cardOuter.cmp-cap > #cmpFsBtn svg path { stroke-width: 2.6; }
@@ -12609,11 +12714,12 @@ class CrowMediaPlayerCard extends HTMLElement {
     this._fetchLyrics(artist, title, album, duration);
   }
 
-  _showLyricsPersistNoResult(message) {
+  _showLyricsPersistNoResult(message, heading = 'No lyrics found') {
     // Like _showLyricsNoResult but does NOT auto-dismiss — panel stays open.
     this.shadowRoot?.getElementById('lyricsMenuBtn')?.classList.add('hidden');
     const r = this.shadowRoot;
     if (!this._lyricsOpen) return;
+    { const h = r.querySelector('#lyricsNoResult .lyrics-no-result-title'); if (h) h.textContent = heading; }
     r.getElementById('lyricsLoading').classList.add('hidden');
     r.getElementById('lyricsScroll').classList.add('hidden');
     const noResult = r.getElementById('lyricsNoResult');
@@ -12638,33 +12744,15 @@ class CrowMediaPlayerCard extends HTMLElement {
     const signal = controller.signal;
 
     try {
-      const cleanTitle = title.replace(/\s+by\s+.+$/i, '').trim() || title;
-      const params = new URLSearchParams({ track_name: cleanTitle, artist_name: artist });
-      if (album)    params.set('album_name', album);
-      if (duration) params.set('duration',   duration);
+      // Music Assistant and the lyrics site, side by side (see _lyricsLookup)
+      const got = await this._lyricsLookup(artist, title, album, duration, { signal });
+      let data = got.data;
+      const info = { failed: got.failed };
 
-      // Music Assistant's own copy first (timed lyrics from it are used as they are; untimed ones only
-      // when the lyrics site has no timed version), then the lyrics site
-      const maData = await this._maLyricsData(artist, title);
-      let data = maData?.syncedLyrics ? maData : null;
-      if (signal.aborted) return;
-      if (!data) {
-        const res = await crowFetch(
-          'https://lrclib.net/api/get?' + params.toString(),
-          { signal, headers: { 'Lrclib-Client': 'crow-media-player/1.0 (home-assistant)' } }
-        );
-
-        if (signal.aborted) return; // track changed while awaiting response
-
-        if (res.ok) {
-          data = await res.json();
-        } else if (res.status === 404) {
-          data = await this._searchLyricsFallback(cleanTitle, artist, signal).catch(() => null);
-        }
-        if (maData && !data?.syncedLyrics) data = maData;
-      }
-
-      if (signal.aborted) return;
+      if (signal.aborted) return; // track changed while awaiting response
+      // The lyrics site didn't answer: nothing is remembered, so opening the lyrics asks again (and keeps
+      // trying) rather than saying "No lyrics found" for a song that may well have them
+      if (!data && info.failed) return;
 
       if (!data || data.instrumental) {
         this._lyricsCache.set(cacheKey, { type: 'none' });
@@ -12717,38 +12805,26 @@ class CrowMediaPlayerCard extends HTMLElement {
     else this._showLyricsNoResult(`No lyrics found for "${title}"`);
   }
 
-  async _fetchLyrics(artist, title, album, duration) {
-    const cleanTitle = title.replace(/\s+by\s+.+$/i, '').trim() || title;
+  async _fetchLyrics(artist, title, album, duration, attempt = 0) {
+    clearTimeout(this._lyrRetryT); this._lyrRetryT = null;
     const cacheKey = (artist + '|' + title).toLowerCase();
     if (!this._lyricsCache) this._lyricsCache = new Map();
+    // Music Assistant and the lyrics site, side by side (see _lyricsLookup)
+    let data = null;
+    const info = { failed: false };
+    try { const got = await this._lyricsLookup(artist, title, album, duration); data = got.data; info.failed = got.failed; }
+    catch (_) { data = null; info.failed = true; }
 
-    // First try the precise /get endpoint (needs good metadata for best match)
-    const params = new URLSearchParams({ track_name: cleanTitle, artist_name: artist });
-    if (album)    params.set('album_name', album);
-    if (duration) params.set('duration',   duration);
-
-    // Music Assistant's own copy first (its untimed lyrics only when the lyrics site has no timed version)
-    const maData = await this._maLyricsData(artist, title);
-    let data = maData?.syncedLyrics ? maData : null;
-    if (!data) try {
-      const res = await crowFetch(
-        `https://lrclib.net/api/get?${params.toString()}`,
-        { headers: { 'Lrclib-Client': 'crow-media-player/1.0 (home-assistant)' } }
-      );
-
-      if (res.ok) {
-        data = await res.json();
-      } else if (res.status === 404) {
-        // /get failed — try fuzzy /search as fallback (handles Alexa's imprecise metadata)
-        data = await this._searchLyricsFallback(cleanTitle, artist);
-      } else {
-        data = null;
-      }
-    } catch (_) {
-      data = null;
+    // The lyrics site didn't answer (down, overloaded or out of reach): say so, and try again a little later
+    // (10 s, 30 s, then a minute) for as long as the lyrics are open on this song
+    // The lyrics couldn't be reached (the lyrics site down, Music Assistant still working through its
+    // providers): say so, and close as usual. The card keeps looking in the background while the song plays,
+    // and the lyrics show as soon as they're found (straight away if the lyrics are open again by then).
+    if (!data && info.failed) {
+      this._showLyricsNoResult('Couldn’t reach the lyrics service right now.', 'Lyrics unavailable');
+      this._lyricsRetryLater(artist, title, album, duration, attempt);
+      return;
     }
-    if (maData && !data?.syncedLyrics) data = maData;
-
     if (!data) { this._showLyricsNoResult(`No lyrics found for "${title}"`); return; }
 
     // Instrumental tracks
@@ -12781,7 +12857,96 @@ class CrowMediaPlayerCard extends HTMLElement {
     this._showLyricsNoResult(`No lyrics found for "${title}"`);
   }
 
-  async _searchLyricsFallback(title, artist, signal) {
+  // Keeps looking for this song's lyrics while it plays (after 10 s, 30 s, 1 min and 2 min), whether or not
+  // the lyrics are open; whatever turns up is kept for the song and shown if the lyrics are open
+  _lyricsRetryLater(artist, title, album, duration, attempt = 0) {
+    const waits = [10000, 30000, 60000, 120000];
+    clearTimeout(this._lyrRetryT); this._lyrRetryT = null;
+    if (attempt >= waits.length) return;
+    const key = (artist + '|' + title).toLowerCase();
+    const now = () => { const a = this._hass?.states?.[this._entity]?.attributes || {}; return ((a.media_artist || '') + '|' + (a.media_title || '')).toLowerCase(); };
+    this._lyrRetryT = setTimeout(async () => {
+      this._lyrRetryT = null;
+      if (now() !== key || !this.isConnected) return;
+      let got = { data: null, failed: true };
+      try { got = await this._lyricsLookup(artist, title, album, duration); } catch (_) {}
+      if (now() !== key) return;
+      if (got.data && this._lyricsLate(artist, title, got.data)) return;
+      if (got.failed) this._lyricsRetryLater(artist, title, album, duration, attempt + 1);
+    }, waits[attempt]);
+  }
+  // Lyrics found after the player had to say they couldn't be reached (a retry, or Music Assistant answering
+  // late): kept for the song, and shown straight away if the lyrics are open on it. Full screen picks them up
+  // from the same store. Returns true when there were lyrics to keep.
+  _lyricsLate(artist, title, data) {
+    let entry = null;
+    if (data?.syncedLyrics) { const lines = this._parseLrc(data.syncedLyrics); if (lines.length) entry = { type: 'synced', lines }; }
+    if (!entry && data?.plainLyrics && String(data.plainLyrics).trim()) entry = { type: 'plain', text: data.plainLyrics };
+    if (!entry) return false;
+    const key = (artist + '|' + title).toLowerCase();
+    if (!this._lyricsCache) this._lyricsCache = new Map();
+    const had = this._lyricsCache.get(key);
+    if (had?.type === 'synced' || (had?.type === 'plain' && entry.type === 'plain')) return true;   // already has as good
+    this._lyricsCache.set(key, entry);
+    try { this._lyricsLocalSet?.(key, entry); } catch (_) {}
+    const a = this._hass?.states?.[this._entity]?.attributes || {};
+    if (this._lyricsOpen && ((a.media_artist || '') + '|' + (a.media_title || '')).toLowerCase() === key) {
+      const r = this.shadowRoot;
+      // only over the "couldn't reach" message or the loading ring, never over lyrics already showing
+      const showing = r?.getElementById('lyricsScroll') && !r.getElementById('lyricsScroll').classList.contains('hidden');
+      if (!showing || had?.type !== entry.type) {
+        try { this._lyrNoResClose?.(); } catch (_) {}
+        this._lyrNoResClose = null;
+        if (entry.type === 'synced') this._showSyncedLyrics(entry.lines); else this._showPlainLyrics(entry.text);
+      }
+    }
+    return true;
+  }
+
+  // ── One lyrics lookup, shared by the player's lyrics, the lookup as a song starts and full screen ──
+  // Music Assistant (asked on demand: the track's own source, then its lyrics providers, LRCLIB and Genius) and
+  // the lyrics site (LRCLIB, through Home Assistant) are asked side by side. Timed lyrics from the lyrics site
+  // are used straight away; otherwise Music Assistant's answer is waited for (it can take a few seconds while
+  // its providers are tried), its timed lyrics first, then untimed lyrics from either.
+  // Returns { data: { syncedLyrics, plainLyrics, instrumental } | null, failed } where failed means the lyrics
+  // site couldn't be asked and Music Assistant had nothing either (so the caller tries again later).
+  // wantSynced: the site's exact match only has untimed lyrics, so its search is tried for a timed version too.
+  async _lyricsLookup(artist, title, album, duration, { signal, wantSynced = false } = {}) {
+    const cleanTitle = title.replace(/\s+by\s+.+$/i, '').trim() || title;
+    const info = { failed: false };
+    const maP = Promise.resolve(this._maLyricsData(artist, title)).catch(() => null);
+    const hdr = { headers: { 'Lrclib-Client': 'crow-media-player/1.0 (home-assistant)' } };
+    if (signal) hdr.signal = signal;
+    let site = null;
+    try {
+      const params = new URLSearchParams({ track_name: cleanTitle, artist_name: artist });
+      if (album)    params.set('album_name', album);
+      if (duration) params.set('duration',   duration);
+      const res = await crowFetch('https://lrclib.net/api/get?' + params.toString(), hdr);
+      if (res.ok) site = await res.json();
+      // no exact match: the fuzzy search (more forgiving of imprecise details from Alexa, Chromecast…)
+      else if (res.status === 404) site = await this._searchLyricsFallback(cleanTitle, artist, signal, info);
+      else info.failed = true;
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e;
+      info.failed = true;
+    }
+    if (wantSynced && site && !site.syncedLyrics && !site.instrumental && !info.failed) {
+      const found = await this._searchLyricsFallback(cleanTitle, artist, signal, info).catch(() => null);
+      if (found?.syncedLyrics) site = found;
+    }
+    if (site?.syncedLyrics) return { data: site, failed: false };
+    const ma = await maP;
+    if (ma?.syncedLyrics) return { data: ma, failed: false };
+    if (site?.instrumental) return { data: site, failed: false };
+    if (ma?.plainLyrics) return { data: ma, failed: false };
+    if (site?.plainLyrics && String(site.plainLyrics).trim()) return { data: site, failed: false };
+    return { data: null, failed: info.failed };
+  }
+
+  // info (optional): info.failed is set when the lyrics site couldn't be asked (an error or no answer), so the
+  // caller can tell "no lyrics for this song" from "the lyrics site isn't answering"
+  async _searchLyricsFallback(title, artist, signal, info) {
     // Fuzzy search — more forgiving of imprecise metadata from Alexa, Chromecast, etc.
     try {
       const params = new URLSearchParams({ track_name: title });
@@ -12792,13 +12957,14 @@ class CrowMediaPlayerCard extends HTMLElement {
         `https://lrclib.net/api/search?${params.toString()}`,
         fetchOpts
       );
-      if (!res.ok) return null;
+      if (!res.ok) { if (info && res.status !== 404) info.failed = true; return null; }
       const results = await res.json();
       if (!Array.isArray(results) || !results.length) return null;
       const withSynced = results.find(r => r.syncedLyrics);
       const withPlain  = results.find(r => r.plainLyrics);
       return withSynced || withPlain || null;
-    } catch (_) {
+    } catch (e) {
+      if (info && e?.name !== 'AbortError') info.failed = true;
       return null;
     }
   }
@@ -12987,10 +13153,12 @@ class CrowMediaPlayerCard extends HTMLElement {
     this._lyricsAfterRender(lines.map(l => l.trim()));
   }
 
-  _showLyricsNoResult(message) {
+  // heading: what the message says at the top ("No lyrics found" unless told otherwise)
+  _showLyricsNoResult(message, heading = 'No lyrics found') {
     this.shadowRoot?.getElementById('lyricsMenuBtn')?.classList.add('hidden');
     const r = this.shadowRoot;
     if (!this._lyricsOpen) return;
+    { const h = r.querySelector('#lyricsNoResult .lyrics-no-result-title'); if (h) h.textContent = heading; }
 
     r.getElementById('lyricsLoading').classList.add('hidden');
     r.getElementById('lyricsScroll').classList.add('hidden');
@@ -13027,6 +13195,8 @@ class CrowMediaPlayerCard extends HTMLElement {
       };
       closeBtn.addEventListener('click', doClose, { once: true });
       const timer = setTimeout(doClose, dur);
+      // lyrics turning up while this is showing call off the closing (see _lyricsLate)
+      this._lyrNoResClose = () => { clearTimeout(timer); closeBtn.removeEventListener('click', doClose); closeBtn.style.display = 'none'; };
     } else {
       // Fallback if button missing
       setTimeout(() => { if (this._lyricsOpen) this._closeLyrics(); }, 10000);
@@ -15132,6 +15302,8 @@ class CrowMediaPlayerCard extends HTMLElement {
     const el = this.shadowRoot?.getElementById('crowViz');
     if (!el) return;
     if (this._saverEl) { this._vizStop(); return; }
+    // full screen covers the artwork, so the visualiser would only be drawing unseen; it carries on when full screen closes
+    if (this._fs) { this._vizStop(true); return; }
     if (!cfg.on || this._remoteMode || !this._vizEligible(st)) {
       // paused or stopped while a visualiser was showing: back to the artwork, and it stays on the
       // artwork when the music resumes (pick a visualiser again from the quick menu)
@@ -15459,7 +15631,7 @@ class CrowMediaPlayerCard extends HTMLElement {
   async _maCmd(command, data = {}) {
     if (!this._maCmdOn() || !this._hass?.connection) throw new Error('Queue Actions isn’t installed');
     // a command that changes the queue: the shared copy of it is out of date
-    if (!/(\/get|\/items|\/search|by_uri|recently_played_items|get_image_palette|\/item)$/.test(command)) this._maQ?.clear();
+    if (!/(\/get|\/items|\/search|by_uri|recently_played_items|get_image_palette|get_track_lyrics|\/item)$/.test(command)) this._maQ?.clear();
     if (this._aqEntryId === undefined) this._aqEntryId = await this._getMassQueueConfigEntry().catch(() => null);
     if (!this._aqEntryId) { this._aqEntryId = undefined; throw new Error('Queue Actions isn’t set up'); }
     const res = await this._hass.connection.sendMessagePromise({
@@ -15507,20 +15679,61 @@ class CrowMediaPlayerCard extends HTMLElement {
         const pl = typeof md?.lyrics === 'string' && md.lyrics.trim() ? md.lyrics : null;
         return (syn || pl) ? { syncedLyrics: syn, plainLyrics: pl } : null;
       };
-      const out = await this._maWithin((async () => {
-        const it = await this._maNowItem(title);
+      // one lookup at a time for each song (the player, the lookup as a song starts and full screen all ask)
+      // The card waits up to 12 seconds, but the lookup itself carries on: Music Assistant tries its lyrics
+      // providers in turn and its LRCLIB step can take minutes while LRCLIB is struggling (it's rate limited
+      // and retries), so Genius may only answer later. A late answer is kept and shown (see _lyricsLate).
+      if (!this._maLyrBusy) this._maLyrBusy = new Map();
+      if (this._maLyrBusy.has(key)) return await this._maWithin(this._maLyrBusy.get(key), 12000);
+      const run = ((async () => {
+        // the queue's item for this song (Music Assistant may take a moment to move on to it after a skip)
+        let it = await this._maNowItem(title);
+        if (!it) {
+          await new Promise(r => setTimeout(r, 1500));
+          if (this._maNow?.p) { try { if (!(await this._maNow.p)) this._maNow = null; } catch (_) { this._maNow = null; } }
+          it = await this._maNowItem(title);
+        }
         const mi = it?.media_item;
         if (!mi) return null;
+        // what Music Assistant has already stored with the song
         let got = pick(mi.metadata);
+        let full = null;
         if (!got && mi.uri) {
-          const full = await this._maCmd('music/item_by_uri', { uri: mi.uri }).catch(() => null);
+          full = await this._maCmd('music/item_by_uri', { uri: mi.uri }).catch(() => null);
           got = pick(full?.metadata);
         }
+        // nothing stored yet (usual on a first play): ask Music Assistant to find them now, the way its own
+        // Now Playing screen does: the track's own source, then its lyrics providers (LRCLIB, Genius…) in turn
+        if (!got) {
+          let track = full && full.item_id && full.provider ? full : mi;
+          // A song in the Music Assistant library is only refreshed by this (and not at all if it was
+          // refreshed recently), so its lyrics providers are never asked. Asking about the song's own copy
+          // on its source (the streaming service, or the file) goes through every lyrics provider in turn.
+          if (track.provider === 'library') {
+            const maps = (Array.isArray(track.provider_mappings) ? track.provider_mappings : [])
+              .filter(m => m && m.item_id && m.provider_instance && m.available !== false)
+              .sort((x, y) => (y.priority || 0) - (x.priority || 0));
+            const m = maps[0];
+            if (m) track = { ...track, provider: m.provider_instance, item_id: m.item_id, uri: undefined,
+              metadata: { ...(track.metadata || {}), lyrics: null, lrc_lyrics: null } };
+          }
+          const r = await this._maCmd('metadata/get_track_lyrics', { track }).catch(() => null);
+          const pair = Array.isArray(r) ? r : Array.isArray(r?.result) ? r.result : null;
+          if (pair) got = pick({ lyrics: pair[0], lrc_lyrics: pair[1] });
+        }
         return got;
-      })());
-      if (this._maLyr.size > 60) this._maLyr.clear();
-      if (out) this._maLyr.set(key, out);
-      return out;
+      })()).catch(() => null);
+      this._maLyrBusy.set(key, run);
+      let late = false;   // the card stopped waiting before Music Assistant answered
+      run.then(out => {
+        this._maLyrBusy.delete(key);
+        if (!out) return;
+        if (this._maLyr.size > 60) this._maLyr.clear();
+        this._maLyr.set(key, out);
+        // an answer after the card stopped waiting: kept for the song (and shown if the lyrics are open)
+        if (late) { try { this._lyricsLate(artist, title, out); } catch (_) {} }
+      });
+      return await Promise.race([run, new Promise(res => setTimeout(() => { late = true; res(null); }, 12000))]);
     } catch (_) { return null; }
   }
   // Music Assistant's colours for the cover of the song playing now: { primary, accent, ... } as [r, g, b],
@@ -16204,6 +16417,8 @@ class CrowMediaPlayerCard extends HTMLElement {
 
     try {
       // Batch-load all HA user-data keys in parallel
+      // recent searches, announcements and the songs the AI has added: your own, kept in Home Assistant
+      if (this._persistOn('personal')) crowMediaPersonalLoad(conn).catch(() => {});
       const [pinsRes, aiRes, itunesRes, wikiRes, lyricsRes] = await Promise.allSettled([
         crowMediaUserData(conn, { type: 'frontend/get_user_data', key: 'crow_media_pins' }),
         this._persistOn('ai_info') ? crowMediaAiGetAll(conn).then(value => ({ value })) : Promise.resolve(null),
@@ -16300,6 +16515,9 @@ class CrowMediaPlayerCard extends HTMLElement {
       }
     } catch(_) {}
   }
+
+  // Your recent searches, announcements and the songs the AI has added changed: saved to Home Assistant
+  _personalSave() { if (this._persistOn('personal')) crowMediaPersonalSave(this._hass?.connection); }
 
   // Write Wikipedia URL cache to HA user data (fire-and-forget, debounced)
   _haStorageSaveWiki() {

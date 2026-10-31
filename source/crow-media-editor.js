@@ -1678,6 +1678,13 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
                 <select id="screensaver_screens_every" style="width:100%;box-sizing:border-box;background:var(--card-background-color,rgba(255,255,255,0.07));border:1px solid var(--divider-color,rgba(128,128,128,0.2));border-radius:10px;color:var(--primary-text-color,#fff);font-size:13px;font-family:inherit;padding:9px 10px;">
                   <option value="10">10 seconds</option><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option><option value="300">5 minutes</option><option value="0">Never (full screen: swipe only)</option>
                 </select>
+                <div class="toggle-item" style="align-items:flex-start;gap:12px;padding:12px 0 0;">
+                  <div style="flex:1;">
+                    <div class="toggle-label">Dark Screens</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;line-height:1.4;">Each screen on black, with its colour kept for the headings, rings, bars and icons instead of filling the screen. Black uses next to no power on an OLED screen (most recent iPhones), so the battery lasts longer.</div>
+                  </div>
+                  <label class="toggle-switch" style="flex-shrink:0;margin-top:2px;"><input type="checkbox" id="screensaver_screens_dark"><span class="toggle-track"></span></label>
+                </div>
               </div>
               <div class="toggle-item" style="align-items:flex-start;gap:12px;padding:4px 0 10px;">
                 <div style="flex:1;">
@@ -2312,6 +2319,13 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
                     <div style="font-size:11px;color:#888;margin-top:2px;line-height:1.4;">Starts in full screen each time this dashboard opens, for a wall tablet. Never in the card editor or while editing the dashboard.</div>
                   </div>
                   <label class="toggle-switch" style="flex-shrink:0;margin-top:2px;"><input type="checkbox" id="start_full"><span class="toggle-track"></span></label>
+                </div>
+ <div class="toggle-item" id="fsOledRow" style="align-items:flex-start;gap:12px;padding:10px 0 10px 16px;">
+                  <div style="flex:1;">
+                    <div class="toggle-label">OLED Background</div>
+                    <div style="font-size:11px;color:#888;margin-top:2px;line-height:1.4;">Keeps full screen almost entirely black, with only a faint glow of the artwork's colours, and dims everything except the artwork, the title and the line being sung. Black uses next to no power on an OLED screen (most recent iPhones), so the battery lasts longer. The animated background isn't used while this is on.</div>
+                  </div>
+                  <label class="toggle-switch" style="flex-shrink:0;margin-top:2px;"><input type="checkbox" id="fullscreen_oled"><span class="toggle-track"></span></label>
                 </div>
 <div class="toggle-item" id="fsAnimBgRow" style="align-items:flex-start;gap:12px;padding:10px 0 10px 16px;">
                   <div style="flex:1;">
@@ -3222,7 +3236,7 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
     {
       const fb = root.getElementById('fullscreen_button');
       const ab = root.getElementById('fullscreen_animated_bg');
-      [['fullscreen_button', true], ['start_full', false], ['fullscreen_animated_bg', false]].forEach(([k, def]) => {
+      [['fullscreen_button', true], ['start_full', false], ['fullscreen_oled', false], ['fullscreen_animated_bg', false]].forEach(([k, def]) => {
         const el = root.getElementById(k);
         if (!el) return;
         el.checked = def ? this._config?.[k] !== false : this._config?.[k] === true;
@@ -3235,9 +3249,11 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
         abFor.onchange = (e) => this._updateConfig('fullscreen_animated_bg_for', e.target.value);
       }
       const dim = () => {
-        ['startFullRow', 'fsAnimBgRow', 'fsAnimBgForRow'].forEach(id => { const row = root.getElementById(id); if (row) { row.style.opacity = fb?.checked ? '' : '0.4'; row.style.pointerEvents = fb?.checked ? '' : 'none'; } });
+        ['startFullRow', 'fsOledRow', 'fsAnimBgRow', 'fsAnimBgForRow'].forEach(id => { const row = root.getElementById(id); if (row) { row.style.opacity = fb?.checked ? '' : '0.4'; row.style.pointerEvents = fb?.checked ? '' : 'none'; } });
         const forRow = root.getElementById('fsAnimBgForRow');
         if (forRow) forRow.style.display = ab?.checked ? 'block' : 'none';
+        // the animated background isn't used with OLED Background on, so its settings are greyed out
+        if (fb?.checked && root.getElementById('fullscreen_oled')?.checked) ['fsAnimBgRow', 'fsAnimBgForRow'].forEach(id => { const row = root.getElementById(id); if (row) { row.style.opacity = '0.4'; row.style.pointerEvents = 'none'; } });
       };
       dim();
     }
@@ -3699,6 +3715,8 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
           this._updateConfig('screensaver_calendars', on.length ? on : undefined);
         });
       }
+      const scrDark = root.getElementById('screensaver_screens_dark');
+      if (scrDark) { scrDark.checked = this._config?.screensaver_screens_dark === true; scrDark.onchange = (e) => this._updateConfig('screensaver_screens_dark', e.target.checked ? true : undefined); }
       const scrEvery = root.getElementById('screensaver_screens_every');
       if (scrEvery) {
         const v = Number(this._config?.screensaver_screens_every);
@@ -4238,6 +4256,7 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
     };
     const clearAdded = () => {
       ADDED_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+      try { if (_cards()[0]?._persistOn?.('personal')) crowMediaPersonalSave((this._hass || _cards()[0]?._hass)?.connection); } catch (_) {}
       _cards().forEach(el => { ['_aiSimilarAdded', '_aiAddSimilarCache'].forEach(k => { if (el[k]) el[k] = el[k] instanceof Map ? new Map() : {}; }); });
     };
     const clearCovers = async () => {
@@ -4257,6 +4276,7 @@ class CrowMediaPlayerCardEditor extends HTMLElement {
       // favourites are the user's own, so they stay
       const fav = _lsJson('crow_media_announce_history', []).filter(h => h && h.favourite);
       try { fav.length ? localStorage.setItem('crow_media_announce_history', JSON.stringify(fav)) : localStorage.removeItem('crow_media_announce_history'); } catch (_) {}
+      try { if (_cards()[0]?._persistOn?.('personal')) crowMediaPersonalSave((this._hass || _cards()[0]?._hass)?.connection); } catch (_) {}
     };
     const clearMdi = () => {
       try { localStorage.removeItem('crow_media_mdi_paths'); } catch (_) {}

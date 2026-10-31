@@ -22,6 +22,11 @@ const CROW_MEDIA_FS_CSS = `
   --ha-card-border-width: 0px; --ha-card-border-color: transparent; --ha-card-border-radius: 0px; --ha-card-box-shadow: none; }
 #cardOuter[data-crow-fs] > #skTb, #cardOuter[data-crow-fs] > #modeBtnAbs, #cardOuter[data-crow-fs] > #artClick,
 #cardOuter[data-crow-fs] > .content, #cardOuter[data-crow-fs] > #cmpFsBtn { visibility: hidden !important; pointer-events: none !important; }
+/* the main player underneath can't be seen, so nothing in it moves: a scrolling title, a skin's moving parts and its
+   progress bar would otherwise keep the phone redrawing behind full screen the whole time it's open */
+#cardOuter[data-crow-fs] > .content *, #cardOuter[data-crow-fs] > #skTb *, #cardOuter[data-crow-fs] > .content, #cardOuter[data-crow-fs] > #skTb,
+#cardOuter[data-crow-fs]:not([data-crow-fs-lyr]):not([data-crow-fs-rem]) > #artClick,
+#cardOuter[data-crow-fs]:not([data-crow-fs-lyr]):not([data-crow-fs-rem]) > #artClick * { animation-play-state: paused !important; transition: none !important; }
 /* panels opened from full screen (the info screen, the library) fill the whole screen, clear of the notch and home bar */
 #cardOuter[data-crow-fs] > #maPopup, #cardOuter[data-crow-fs] > #infoPopup { inset: 0 !important; width: auto !important; height: auto !important; max-width: none !important; max-height: none !important;
   border-radius: 0 !important; box-sizing: border-box !important; z-index: 60 !important; box-shadow: none !important;
@@ -127,10 +132,11 @@ const CROW_MEDIA_FS_CSS = `
 #crowFs, #crowFs * { -webkit-touch-callout: none; }
 #crowFs img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
 #crowFs button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
-.cfs-bg { position: absolute; inset: 0; overflow: hidden; }
-.cfs-bgimg { position: absolute; left: -12%; top: -12%; width: 124%; height: 124%; object-fit: cover; filter: blur(70px) saturate(1.5) brightness(0.72); animation: cfs-drift 40s ease-in-out infinite alternate; }
-@keyframes cfs-drift { from { transform: scale(1.1) translate(-2%, -1%); } to { transform: scale(1.2) translate(2%, 1.5%); } }
-@media (prefers-reduced-motion: reduce) { .cfs-bgimg { animation: none; } }
+.cfs-bg { position: absolute; inset: 0; overflow: hidden; transform: translateZ(0); }
+/* The blurred picture behind everything holds still: it's drawn once on a layer of its own, so the lyrics, progress
+   bar and buttons changing above it never make the phone blur the whole screen again. (A slow endless drift here
+   kept an iPhone redrawing a full-screen blur every frame for as long as full screen was open.) */
+.cfs-bgimg { position: absolute; left: -12%; top: -12%; width: 124%; height: 124%; object-fit: cover; filter: blur(70px) saturate(1.5) brightness(0.72); transform: scale(1.15); }
 /* Animated Background (editor → Appearance, off by default): while something plays, several big, blurred copies of
    the artwork turn and drift slowly on their own paths, so its colours swirl behind everything, like the Apple TV's
    music background. It fades in over the plain background and back out when playing stops (it keeps moving while it
@@ -148,21 +154,57 @@ const CROW_MEDIA_FS_CSS = `
 /* at rest unless it's showing (the layers' own animation shorthand would otherwise set them running) */
 #crowFs .cfs-fl { animation-play-state: paused; }
 #crowFs[data-flow-run] .cfs-fl { animation-play-state: running; }
-/* behind full screen's lyrics screen nobody sees it, so it rests */
-#cardOuter[data-crow-fs-lyr] #crowFs .cfs-fl { animation-play-state: paused; }
+/* behind full screen's lyrics screen, the info screen or the library nobody sees it, so it rests */
+#cardOuter[data-crow-fs-lyr] #crowFs .cfs-fl,
+#cardOuter[data-crow-fs]:has(> #maPopup.visible) #crowFs .cfs-fl,
+#cardOuter[data-crow-fs]:has(> #infoPopup.visible) #crowFs .cfs-fl,
+#crowFs[data-rest] .cfs-fl { animation-play-state: paused; }
 @keyframes cfs-fl-a { 0% { transform: rotate(0deg) translate(0, 0) scale(1); } 50% { transform: rotate(180deg) translate(9vmax, 6vmax) scale(1.18); } 100% { transform: rotate(360deg) translate(0, 0) scale(1); } }
 @keyframes cfs-fl-b { 0% { transform: rotate(0deg) translate(0, 0) scale(1.1); } 50% { transform: rotate(-180deg) translate(-10vmax, 8vmax) scale(0.95); } 100% { transform: rotate(-360deg) translate(0, 0) scale(1.1); } }
 @keyframes cfs-fl-c { 0% { transform: rotate(0deg) translate(0, 0) scale(0.95); } 50% { transform: rotate(180deg) translate(8vmax, -9vmax) scale(1.15); } 100% { transform: rotate(360deg) translate(0, 0) scale(0.95); } }
 @keyframes cfs-fl-d { 0% { transform: rotate(0deg) translate(0, 0) scale(1.05); } 50% { transform: rotate(-180deg) translate(-8vmax, -7vmax) scale(1.2); } 100% { transform: rotate(-360deg) translate(0, 0) scale(1.05); } }
 @media (prefers-reduced-motion: reduce) { .cfs-flow { display: none; } }
 .cfs-bgshade { position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 30%, rgba(0,0,0,0.05), rgba(0,0,0,0.45)), rgba(10,8,18,0.25); }
+/* OLED Background (editor → Full Screen, off by default): on an iPhone's OLED screen a black pixel is switched off and
+   uses no power, so the screen is kept almost entirely black. The artwork's colours are only a faint glow in the
+   middle, the artwork, title and the line being sung stay bright, and everything else is dimmed. There's no
+   Animated Background in this mode. */
+#crowFs[data-oled] { background: #000; }
+#crowFs[data-oled] .cfs-bgimg { filter: blur(70px) saturate(1.6) brightness(0.22); }
+#crowFs[data-oled] .cfs-bgshade { background: radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0.25), #000 72%); }
+#crowFs[data-oled] .cfs-flow { display: none; }
+#crowFs[data-oled] .cfs-art { box-shadow: none; }
+#crowFs[data-oled] .cfs-title { color: rgba(255,255,255,0.92); }
+#crowFs[data-oled] .cfs-subt { color: rgba(255,255,255,0.5); }
+#crowFs[data-oled] .cfs-times, #crowFs[data-oled] .cfs-volp { color: rgba(255,255,255,0.4); }
+#crowFs[data-oled] .cfs-bar { background: rgba(255,255,255,0.12); }
+#crowFs[data-oled] .cfs-fill { background: rgba(255,255,255,0.7); }
+#crowFs[data-oled] .cfs-b { color: rgba(255,255,255,0.85); }
+#crowFs[data-oled] .cfs-small, #crowFs[data-oled] .cfs-vol, #crowFs[data-oled] .cfs-mute { color: rgba(255,255,255,0.45); }
+#crowFs[data-oled] .cfs-small.on { background: rgba(255,255,255,0.08); }
+#crowFs[data-oled] .cfs-play { background: rgba(255,255,255,0.14); color: #fff; box-shadow: none; }
+#crowFs[data-oled] .cfs-volr { accent-color: #a8a8a8; }
+#crowFs[data-oled] .cfs-cap, #crowFs[data-oled] .cfs-sleep { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.1); }
+#crowFs[data-oled] .cfs-circ { color: rgba(255,255,255,0.7); }
+#crowFs[data-oled] .cfs-line { color: rgba(255,255,255,0.2); }
+#crowFs[data-oled] .cfs-line.past { color: rgba(255,255,255,0.25); }
+#crowFs[data-oled] .cfs-line.on { color: #fff; }
+#crowFs[data-oled] .cfs-lyrics[data-mode="scroll"] .cfs-line, #crowFs[data-oled] .cfs-lyrics[data-mode="none"] .cfs-line { color: rgba(255,255,255,0.75); }
+#crowFs[data-oled] .cfs-plain { color: rgba(255,255,255,0.65); }
+#crowFs[data-oled] .cfs-lmsg, #crowFs[data-oled] .cfs-ih { color: rgba(255,255,255,0.4); }
+#crowFs[data-oled] .cfs-it { color: rgba(255,255,255,0.9); }
+#crowFs[data-oled] .cfs-is, #crowFs[data-oled] .cfs-if, #crowFs[data-oled] .cfs-id { color: rgba(255,255,255,0.55); }
+#crowFs[data-oled] .cfs-if2, #crowFs[data-oled] .cfs-icast, #crowFs[data-oled] .cfs-chmsg { color: rgba(255,255,255,0.4); }
+#crowFs[data-oled] .cfs-nextl { color: rgba(255,255,255,0.4); }
+#crowFs[data-oled] .cfs-nextt { color: rgba(255,255,255,0.75); }
+#crowFs[data-oled] .cfs-nextchev { fill: rgba(255,255,255,0.3); }
 /* just the quick menu and exit buttons, top right */
 .cfs-top { position: absolute; top: 0; right: 0; z-index: 5; display: flex; align-items: center; gap: 0;
   padding: max(15px, env(safe-area-inset-top)) max(28px, env(safe-area-inset-right)) 0 0; }
 /* the quick menu and exit buttons: one capsule with a thin line between them, the same as the
    player's Full Screen and resize buttons (38px tall, 34px buttons; each still a 44px tap area) */
 .cfs-cap { display: flex; align-items: center; height: 38px; padding: 0 3px; border-radius: 19px; box-sizing: border-box;
-  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.14); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); }
 .cfs-cap-sep { width: 1px; height: 19px; background: rgba(255,255,255,0.22); flex-shrink: 0; }
 .cfs-circ { position: relative; width: 34px; height: 34px; border: none; background: none; padding: 0; border-radius: 50%; color: rgba(255,255,255,0.88);
   display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: background 0.2s ease; }
@@ -190,8 +232,8 @@ const CROW_MEDIA_FS_CSS = `
 .cfs-subt { font-size: clamp(15px, 1.6vw, 19px); color: rgba(255,255,255,0.72); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cfs-bar { position: relative; height: 6px; border-radius: 3px; background: rgba(255,255,255,0.2); cursor: pointer; }
 .cfs-bar::before { content: ''; position: absolute; left: 0; right: 0; top: -14px; bottom: -14px; }
-.cfs-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: #fff; transition: width 0.5s linear; }
-.cfs-live .cfs-fill { width: 100% !important; opacity: 0.35; }
+.cfs-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; border-radius: 3px; background: #fff; transform-origin: 0 50%; transform: scaleX(0); }
+.cfs-live .cfs-fill { transform: none !important; opacity: 0.35; }
 .cfs-times { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.62); margin-top: 8px; font-variant-numeric: tabular-nums; }
 .cfs-app { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cfs-ctrls { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
@@ -213,11 +255,14 @@ const CROW_MEDIA_FS_CSS = `
   -webkit-mask-image: linear-gradient(transparent, #000 16%, #000 84%, transparent); mask-image: linear-gradient(transparent, #000 16%, #000 84%, transparent); }
 .cfs-panel::-webkit-scrollbar { display: none; }
 .cfs-lpad { height: 50%; }
-/* lines are never re-sized while they play: the current line is scaled up (set per frame), so nothing re-flows */
+/* lines are never re-sized while they play: the current line is scaled up (a transform), so nothing re-flows */
 .cfs-line { font-size: clamp(24px, 3vw, 40px); font-weight: 800; letter-spacing: -0.6px; line-height: 1.2; color: rgba(255,255,255,0.3); padding: 10px 6%;
-  text-align: center; transform-origin: 50% 50%; transition: color 0.45s ease; }
+  text-align: center; transform-origin: 50% 50%; transition: color 0.45s ease, transform 0.45s ease; }
 .cfs-line.past { color: rgba(255,255,255,0.38); }
-.cfs-line.on { color: #fff; text-shadow: 0 0 24px rgba(255,255,255,0.25); }
+/* the current line: brighter, and a little bigger (Highlight). It grows with one short transition the phone runs
+   by itself, rather than being resized from script every frame, and has no glow, which had to be redrawn as it moved */
+.cfs-line.on { color: #fff; }
+.cfs-lyrics:not([data-mode="scroll"]):not([data-mode="none"]) .cfs-line.on { transform: scale(1.06); }
 .cfs-plain { white-space: pre-line; text-align: center; font-size: clamp(18px, 2vw, 24px); font-weight: 600; line-height: 1.5; color: rgba(255,255,255,0.85); padding: 24px 0; }
 /* messages (nothing playing, finding the lyrics, none found) sit in the middle of the lyrics area */
 .cfs-lmsg { min-height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; text-align: center;
@@ -236,9 +281,8 @@ const CROW_MEDIA_FS_CSS = `
 .cfs-nextchev { width: 20px; height: 20px; fill: rgba(255,255,255,0.45); flex-shrink: 0; }
 .cfs-stopped .cfs-art { opacity: 0.6; }
 /* sleep timer: a small pill beside the corner buttons with the time left; tap to change or turn it off */
-.cfs-sleep { height: 38px; margin: 0 8px 0 0; padding: 0 13px 0 10px; border-radius: 19px; border: 1px solid rgba(255,255,255,0.14); box-sizing: border-box; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9);
-  display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap;
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.cfs-sleep { height: 38px; margin: 0 8px 0 0; padding: 0 13px 0 10px; border-radius: 19px; border: 1px solid rgba(255,255,255,0.14); box-sizing: border-box; background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.9);
+  display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; }
 .cfs-sleep svg { width: 15px; height: 15px; fill: #FFD60A; flex-shrink: 0; }
 .cfs-sleep:active { transform: scale(0.94); }
 /* the artwork: swipe to skip, double-tap to pin; the pinned badge sits in its corner */
@@ -362,15 +406,37 @@ Object.assign(K.Card.prototype, {
         try {
           if (!this._fs) return;
           if (!this.isConnected || !this._fsOn()) { this._fsExit(); return; }
+          if (document.hidden) return;   // the phone's locked or another app is in front: nothing to update
+          // the screensaver is covering full screen: everything here rests until it's tapped away
+          if (this._saverEl?.classList.contains('cs-full')) { this._fsRest(true); return; }
+          if (this._fsResting) { this._fsRest(false); return; }
           this._fsUpdate();
         } catch (err) { console.warn('[Crow Media Player] full screen', err); this._fsExit(); }
-      }, 500);
+      }, 1000);   // once a second: nothing in full screen changes faster than the clock it shows
       // an older browser without a top layer: if anything on the page covers the exit button, don't stay
       if (!top) setTimeout(() => this._fsCheck(), 400);
     } catch (err) {
       console.warn('[Crow Media Player] couldn’t go full screen', err);
       this._fsExit();
     }
+  },
+  // While the screensaver covers full screen nothing here can be seen, so it all stops: the updates, the lyrics
+  // scroll and the animated background. When the screensaver goes, everything is brought up to date at once.
+  _fsRest(on) {
+    const v = this.shadowRoot?.getElementById('crowFs');
+    if (on) {
+      if (this._fsResting) return;
+      this._fsResting = true;
+      v?.setAttribute('data-rest', '');
+      try { if (this._fsLyRaf) cancelAnimationFrame(this._fsLyRaf); clearTimeout(this._fsLyWake); } catch (_) {}
+      this._fsLyRaf = null; this._fsLyWake = null;
+      return;
+    }
+    if (!this._fsResting) return;
+    this._fsResting = false;
+    v?.removeAttribute('data-rest');
+    this._fsLy = null;
+    if (this._fs) { try { this._fsUpdate(true); } catch (_) {} }
   },
   _fsCheck() {
     if (!this._fs) return;
@@ -416,8 +482,10 @@ Object.assign(K.Card.prototype, {
     if (!this._fs) return;
     this._fs = false;
     this._fsLeaving = true;
-    try { clearInterval(this._fsTimer); if (this._fsLyRaf) cancelAnimationFrame(this._fsLyRaf); } catch (_) {}
+    try { clearInterval(this._fsTimer); if (this._fsLyRaf) cancelAnimationFrame(this._fsLyRaf); clearTimeout(this._fsLyWake); clearTimeout(this._fsQRetry); clearTimeout(this._fsLyrRetryT); } catch (_) {}
     this._fsLyRaf = null;
+    this._fsLyWake = null;
+    this._fsResting = false;
     this._fsLy = null;
     this._fsTimer = null;
     try { this._fsListen(false); } catch (_) {}
@@ -447,6 +515,9 @@ Object.assign(K.Card.prototype, {
     }
     this._fsLeaving = false;
     this._fsBtnSync();
+    // the main player wasn't redrawn for every small change while it was hidden: bring it up to date now
+    this._fsHassFp = null;
+    try { const st = this._hass?.states?.[this._entity]; if (st) this.updateContent(st); } catch (_) {}
   },
   // ── the layout ──
   _fsBuild(card) {
@@ -880,7 +951,7 @@ Object.assign(K.Card.prototype, {
   _fsFlow(v, playing, art) {
     const cfg = this._config || {};
     const want = (() => {
-      if (cfg.fullscreen_animated_bg !== true || !playing || !art || v._appIcon) return false;
+      if (cfg.fullscreen_animated_bg !== true || cfg.fullscreen_oled === true || !playing || !art || v._appIcon) return false;
       const forWhat = ['music', 'video'].includes(cfg.fullscreen_animated_bg_for) ? cfg.fullscreen_animated_bg_for : 'all';
       if (forWhat === 'all') return true;
       let video = false;
@@ -917,7 +988,7 @@ Object.assign(K.Card.prototype, {
   },
   _fsUpdate(force = false) {
     const v = this.shadowRoot?.getElementById('crowFs');
-    if (!v || !this._fs) return;
+    if (!v || !this._fs || this._fsResting) return;
     const eid = this._entity;
     const st = this._hass?.states?.[eid];
     const a = st?.attributes || {};
@@ -955,6 +1026,8 @@ Object.assign(K.Card.prototype, {
       if (art) { ai.src = art; bi.src = art; ai.hidden = false; bi.hidden = false; }
       else { ai.removeAttribute('src'); bi.removeAttribute('src'); ai.hidden = true; bi.hidden = true; }
     }
+    // OLED Background, as chosen in the editor (follows a change straight away)
+    { const oled = this._config?.fullscreen_oled === true; if (v.hasAttribute('data-oled') !== oled) v.toggleAttribute('data-oled', oled); }
     this._fsFlow(v, playing, art);
     const room = this._entityDisplayName(eid);
     const set = (sel, t) => { const el = v.querySelector(sel); if (el && el.textContent !== t) el.textContent = t; };
@@ -980,9 +1053,10 @@ Object.assign(K.Card.prototype, {
     const dur = +a.media_duration || 0;
     let pos = this._fsPosNow();
     if (this._fsSeekPct != null && dur) pos = this._fsSeekPct * dur;   // while dragging, the bar follows the finger
+    // scaled rather than resized, so moving it never makes the page lay itself out again
     const fill = v.querySelector('.cfs-fill');
-    fill.style.transition = this._fsSeekPct != null ? 'none' : '';
-    fill.style.width = dur && active ? (pos / dur * 100).toFixed(2) + '%' : '0%';
+    const fx = 'scaleX(' + (dur && active ? Math.max(0, Math.min(1, pos / dur)).toFixed(4) : '0') + ')';
+    if (fill.style.transform !== fx) fill.style.transform = fx;
     v.querySelector('.cfs-prog').classList.toggle('cfs-live', !dur && active);
     // an app with no running time (and not a radio station): no bar or times at all
     { let k = 'x'; if (active && !dur) { try { k = this._fsIsRadio() ? 'radio' : this._fsKind(); } catch (_) { k = 'x'; } }
@@ -1104,32 +1178,23 @@ Object.assign(K.Card.prototype, {
     if (!this._lyricsCache) this._lyricsCache = new Map();
     const cached = this._lyricsCachedEntry(artist, title);
     if (cached?.type === 'synced' && cached.lines?.length) return cached;
-    const hdr = { headers: { 'Lrclib-Client': 'crow-media-player/1.0 (home-assistant)' } };
     const cleanTitle = title.replace(/\s+by\s+.+$/i, '').trim() || title;
     const synced = d => {
       if (!d || d.instrumental || !d.syncedLyrics) return null;
       const lines = this._parseLrc(d.syncedLyrics);
       return lines.length ? { type: 'synced', lines } : null;
     };
-    // Music Assistant's own copy first, then the lyrics site
-    let data = await this._maLyricsData(artist, title);
-    if (!data) try {
-      const params = new URLSearchParams({ track_name: cleanTitle, artist_name: artist });
-      if (album) params.set('album_name', album);
-      if (duration) params.set('duration', duration);
-      const res = await crowFetch('https://lrclib.net/api/get?' + params.toString(), hdr);
-      if (res.ok) data = await res.json();
-    } catch (_) { data = null; }
+    // Music Assistant (asked on demand, so its LRCLIB and Genius are tried) and the lyrics site side by side,
+    // looking for a timed version wherever there is one (see _lyricsLookup)
+    let data = null;
+    const info = { failed: false };
+    try { const got = await this._lyricsLookup(artist, title, album, duration, { wantSynced: true }); data = got.data; info.failed = got.failed; }
+    catch (_) { data = null; info.failed = true; }
     let entry = synced(data);
-    // no timed lyrics from the exact match: the search often has a timed version of the same song
-    if (!entry) {
-      const found = await this._searchLyricsFallback(cleanTitle, artist).catch(() => null);
-      entry = synced(found);
-      if (!entry && !data) data = found;
-    }
     if (!entry && data && !data.instrumental && data.plainLyrics && data.plainLyrics.trim()) entry = { type: 'plain', text: data.plainLyrics };
     if (!entry && data?.instrumental) return { type: 'instrumental' };
-    if (!entry) return cached || { type: 'none' };
+    // the lyrics site didn't answer: "failed", so full screen tries again, unless lyrics were found before
+    if (!entry) return (cached && cached.type !== 'none') ? cached : info.failed ? { type: 'failed' } : (cached || { type: 'none' });
     if (entry.type === 'synced' || !cached || cached.type === 'none') {
       this._lyricsCache.set(key, entry);
       if (this._lyricsLocalSet) { try { this._lyricsLocalSet(key, entry); } catch (_) {} }
@@ -1139,15 +1204,25 @@ Object.assign(K.Card.prototype, {
   _fsLyrics(v, key, a, pos, force, dur) {
     const box = v.querySelector('.cfs-lyrics');
     if (!box) return;
-    // plain lyrics showing, but the card has since found the timed version: switch to it
-    if (key && key === this._fsLyrKey && !this._fsLyr && this._fsLyrPlain) {
+    // Lyrics turning up after something else was shown (plain lyrics, the song's info after the lyrics site
+    // couldn't be reached, or "trying again"): the card has found them since (a retry, Music Assistant, the
+    // player's own lyrics screen), so they're shown straight away. Checked every few seconds until then.
+    if (key && key === this._fsLyrKey && !this._fsLyr && (this._fsLyrPlain || this._fsLyrWait) && Date.now() - (this._fsLyrPeek || 0) > 3000) {
+      this._fsLyrPeek = Date.now();
       const c = this._lyricsCachedEntry(a.media_artist, a.media_title);
-      if (c?.type === 'synced' && c.lines?.length) { this._fsShowSynced(box, c.lines); force = true; }
+      if (c?.type === 'synced' && c.lines?.length) { clearTimeout(this._fsLyrRetryT); this._fsLyrWait = false; this._fsShowSynced(box, c.lines); force = true; }
+      else if (c?.type === 'plain' && c.text && !this._fsLyrPlain) {
+        clearTimeout(this._fsLyrRetryT);
+        this._fsLyrWait = false; this._fsLyrPlain = true;
+        box.innerHTML = '<div class="cfs-plain"></div>'; box.firstChild.textContent = c.text; box.scrollTop = 0;
+      }
     }
     if (key !== this._fsLyrKey) {
       this._fsLyrKey = key;
       this._fsLyr = null;
       this._fsLyrPlain = false;
+      this._fsLyrWait = false;
+      clearTimeout(this._fsLyrRetryT); this._fsLyrRetryT = null;
       this._fsLyrIdx = -2;
       const msg = t => { box.innerHTML = '<div class="cfs-lmsg"></div>'; box.firstChild.textContent = t; box.scrollTop = 0; };
       // nothing playing: the space beside the player is simply left empty
@@ -1161,8 +1236,19 @@ Object.assign(K.Card.prototype, {
       }
       msg('Finding the lyrics…');
       const want = key;
-      this._fsLyricsFetch(a.media_artist, a.media_title, a.media_album_name || '', Math.round(dur || 0)).then(entry => {
+      // the lyrics couldn't be reached: the song's info is shown straight away, as when a song has no lyrics,
+      // and the card quietly looks again after 10 s, 30 s and a minute; the lyrics replace the info if they
+      // turn up later in the song (from a later look, Music Assistant, or the lyrics opened on the card)
+      const look = (attempt) => this._fsLyricsFetch(a.media_artist, a.media_title, a.media_album_name || '', Math.round(dur || 0)).then(entry => {
         if (this._fsLyrKey !== want || !this._fs) return;
+        if (entry?.type === 'failed') {
+          const waits = [10000, 30000, 60000];
+          this._fsLyrWait = true;
+          if (!attempt) this._fsInfo(box, 'music', want, { failed: true });
+          if (attempt < waits.length) this._fsLyrRetryT = setTimeout(() => { if (this._fsLyrKey === want && this._fs) look(attempt + 1); }, waits[attempt]);
+          return;
+        }
+        this._fsLyrWait = false;
         if (entry?.type === 'synced' && entry.lines?.length) {
           this._fsShowSynced(box, entry.lines);
           this._fsUpdate(true);
@@ -1172,7 +1258,8 @@ Object.assign(K.Card.prototype, {
           box.firstChild.textContent = entry.text;
           box.scrollTop = 0;
         } else this._fsInfo(box, 'music', want, { instrumental: entry?.type === 'instrumental' });   // no lyrics: about the song instead
-      }).catch(() => { if (this._fsLyrKey === want) this._fsInfo(box, 'music', want); });
+      }).catch(() => { if (this._fsLyrKey === want) { this._fsLyrWait = true; this._fsInfo(box, 'music', want, { failed: true }); } });
+      look(0);
       return;
     }
     // timed lyrics: the scroll runs every frame (started here, so it picks up again after a pause)
@@ -1329,7 +1416,8 @@ Object.assign(K.Card.prototype, {
           ['Format', radio ? '' : fmt],
         ]);
         if (aq) m.chips2 = [aq.head, aq.detail, aq.source].filter(Boolean).join(' · ');
-        if (!m.chips.length && !radio && !opt.instrumental) m.desc = 'No lyrics found for this song.';
+        // the line under the details when there's nothing else to say about the song
+        if (!m.chips.length && !radio && !opt.instrumental) m.desc = opt.failed ? 'Couldn’t reach the lyrics service right now.' : 'No lyrics found for this song.';
         draw(m);
         return;
       }
@@ -1704,13 +1792,24 @@ Object.assign(K.Card.prototype, {
   // The same scroll as the lyrics opened from the artwork: it never stops, drifting gently through each
   // line and gliding into the next on a soft spring so it arrives just as that line starts. Here the
   // current line sits in the middle of the lyrics area and grows as it reaches its place.
+  // It only runs frame by frame while something is moving (a glide into the next line, the line growing, the
+  // scroll coming home after a swipe). In between, with the current line still in the middle, it sleeps until
+  // the next glide is due (checking at least once a second), so the phone isn't redrawing 60–120 times a second
+  // for nothing.
   _fsLyrStart(snap) {
     if (snap) this._fsLy = null;
-    if (this._fsLyRaf) return;
+    // a seek or a new song (the scroll was reset) wakes it straight away
+    if (this._fsLyWake && (snap || !this._fsLy)) { clearTimeout(this._fsLyWake); this._fsLyWake = null; }
+    if (this._fsLyRaf || this._fsLyWake) return;
     this._fsLyLast = performance.now();
     const step = (now) => {
       let more = false;
       try { more = this._fsLyrTick(now); } catch (_) { more = false; }
+      if (typeof more === 'number') {
+        this._fsLyRaf = null;
+        this._fsLyWake = setTimeout(() => { this._fsLyWake = null; if (this._fs) this._fsLyrStart(); }, more);
+        return;
+      }
       this._fsLyRaf = more ? requestAnimationFrame(step) : null;
     };
     this._fsLyRaf = requestAnimationFrame(step);
@@ -1742,8 +1841,10 @@ Object.assign(K.Card.prototype, {
     const v = this.shadowRoot?.getElementById('crowFs');
     const box = v?.querySelector('.cfs-lyrics');
     const L = this._fsLyr;
-    if (!this._fs || !this.isConnected || !box || !L || !L.length) { this._fsLy = null; return false; }
-    const els = box.querySelectorAll('.cfs-line'), n = Math.min(els.length, L.length);
+    if (!this._fs || this._fsResting || !this.isConnected || !box || !L || !L.length) { this._fsLy = null; return false; }
+    // the lines, found once for each set of lyrics rather than every frame
+    if (this._fsLyEls?.for !== L || !this._fsLyEls.els[0]?.isConnected) this._fsLyEls = { for: L, els: box.querySelectorAll('.cfs-line') };
+    const els = this._fsLyEls.els, n = Math.min(els.length, L.length);
     if (!n) return false;
     // the editor's lyrics scroll setting: Highlight (the default), Scroll (no highlight), None (no scrolling)
     const mode = this._config?.lyrics_scroll_mode || 'highlight';
@@ -1779,7 +1880,7 @@ Object.assign(K.Card.prototype, {
 
     // follow it on a soft spring (it jumps straight there when the song is skipped or seeks a long way)
     let S = this._fsLy, snapped = false;
-    if (!S || Math.abs(target - S.pos) > 4 || S.for !== L) { S = this._fsLy = { pos: target, vel: 0, for: L, off: 0, offVel: 0, driving: false, scaled: new Set() }; snapped = true; }
+    if (!S || Math.abs(target - S.pos) > 4 || S.for !== L) { S = this._fsLy = { pos: target, vel: 0, for: L, off: 0, offVel: 0, driving: false }; snapped = true; }
     const K = 90, D = 2 * Math.sqrt(K) * 1.05;
     for (let i = 0, steps = Math.ceil(dt / 0.008); i < steps; i++) {
       const h = dt / steps;
@@ -1808,41 +1909,58 @@ Object.assign(K.Card.prototype, {
     }
     S.driving = driving;
 
-    // the current line grows as it reaches the middle and shrinks as it leaves (scaled, so nothing re-flows)
-    const keep = new Set();
-    const c = Math.round(S.pos);
-    for (let k = Math.max(0, c - 2); mode === 'highlight' && k <= Math.min(n - 1, c + 2); k++) {
-      const d = Math.min(1, Math.abs(k - S.pos)), e = d * d * (3 - 2 * d);
-      const sc = 1 + 0.08 * (1 - e);
-      if (sc > 1.0005) { els[k].style.transform = 'scale(' + sc.toFixed(4) + ')'; keep.add(k); }
-    }
-    S.scaled.forEach(k => { if (!keep.has(k) && els[k]) els[k].style.transform = ''; });
-    S.scaled = keep;
+    // (the current line's growing is left to CSS: see .cfs-line.on)
 
     // nothing left to move while the music is stopped: rest until it plays again (the 500ms update restarts it)
     const settled = Math.abs(target - S.pos) < 0.0005 && Math.abs(S.vel) < 0.001 && !S.off;
     if (!moving && settled && driving) { S.driving = false; return false; }
+    // settled with the current line in the middle: sleep until the next glide (or the next line lights up)
+    if (settled && moving) {
+      if (!driving) return Math.max(16, Math.min(1000, (this._fsLyUser || 0) - Date.now()));
+      let wait = 1;
+      if (ci >= 0 && ci < n - 1) {
+        const s1 = L[ci + 1].time, glide = Math.min(0.5, Math.max(0.3, s1 - L[ci].time) * 0.5);
+        wait = Math.min(wait, (s1 - glide) - p);
+      } else if (ci < 0 && n) wait = Math.min(wait, L[0].time - p);
+      if (idx + 1 < n) wait = Math.min(wait, L[idx + 1].time - pos);
+      const ms = Math.floor(wait * 1000) - 20;
+      if (ms > 40) return ms;
+    }
     return true;
   },
   // the next song, shown under the lyrics; tapping it opens its info screen
-  async _fsQueue(v, key, force) {
+  // After a skip, Home Assistant often says what's playing a moment before Music Assistant's queue has moved on,
+  // so the first answer can still be the old one (its "next" is then the song now playing, or the one after the
+  // song skipped away from). An answer is only used when the queue's current song is the one playing; otherwise
+  // it asks again shortly, a few times, before giving up.
+  async _fsQueue(v, key, force, tries = 0) {
     if (key === this._fsQKey && !force) return;
     if (key === this._fsQKey && force && this._fsQBusy) return;
+    const changed = key !== this._fsQKey;
     this._fsQKey = key;
     const strip = v.querySelector('.cfs-next');
     if (!strip) return;
+    if (changed) { clearTimeout(this._fsQRetry); this._fsQRetry = null; }
     if (!key) { strip.hidden = true; this._fsNext = null; return; }
     this._fsQBusy = true;
-    let items = [];
+    let items = [], stale = false;
+    const cur = this._hass?.states?.[this._entity]?.attributes || {};
+    const norm = t => (this._maNorm ? this._maNorm(t) : String(t || '').trim().toLowerCase());
+    const nowT = norm(cur.media_title);
+    // the song shown as next is the one playing now (a skip forward): it's out of date, so it goes straight away
+    if (changed && this._fsNext && nowT && norm(this._fsNext.title) === nowT) { strip.hidden = true; this._fsNext = null; }
+    // is this the queue as it stands for the song playing now?
+    const isNow = name => !nowT || !name || norm(name) === nowT;
     try {
       const eid = this._cmpIsMa(this._entity) ? this._entity : (this._resolveMATargetEntity?.() || this._entity);
-      const cur = this._hass?.states?.[this._entity]?.attributes || {};
       // Music Assistant's own idea of what's next, straight from its queue (through Queue Actions)
       const _mq = this._maQueueId(eid) || this._maQueueId(this._entity);
       if (_mq && this._maCmdOn()) {
         try {
-          const q = await this._maQueueGet(_mq, { fresh: !!force });
-          if (q?.next_item) { const m = this._maItem(q.next_item, 1, 0); items = [{ title: m.title, artist: m.artist, image: m.thumbnail || '' }]; }
+          const q = await this._maQueueGet(_mq, { fresh: true });
+          const ci = q?.current_item;
+          if (q && !isNow(ci?.media_item?.name || ci?.name)) stale = true;
+          else if (q?.next_item) { const m = this._maItem(q.next_item, 1, 0); items = [{ title: m.title, artist: m.artist, image: m.thumbnail || '' }]; }
           else if (q && typeof q.current_index === 'number') items = [];   // nothing after this song
         } catch (_) { items = []; }
       }
@@ -1858,7 +1976,8 @@ Object.assign(K.Card.prototype, {
             if (at === -1 && cur.media_content_id) at = raw.findIndex(x => (x.media_content_id || x.uri) === cur.media_content_id);
             const t = (cur.media_title || '').trim().toLowerCase();
             if (at === -1 && t) at = raw.findIndex(x => (x.media_title || x.name || '').trim().toLowerCase() === t);
-            const x = at >= 0 ? raw[at + 1] : null;
+            if (at >= 0 && !isNow(raw[at].media_title || raw[at].name)) stale = true;
+            const x = at >= 0 && !stale ? raw[at + 1] : null;
             if (x) items = [{ title: x.media_title || x.name || '', artist: x.media_artist || x.artist || '', image: x.media_image || x.local_image_encoded || x.thumbnail || '' }];
           }
         } catch (_) { items = []; }
@@ -1868,8 +1987,9 @@ Object.assign(K.Card.prototype, {
         const res = await this._hass.connection.sendMessagePromise({ type: 'call_service', domain: 'music_assistant', service: 'get_queue',
           service_data: { entity_id: eid }, return_response: true });
         const q = res?.response?.[eid] || {};
-        const n = q.next_item;
-        if (n) {
+        const n = q.next_item, ci = q.current_item;
+        if (ci && !isNow(ci.media_item?.name || ci.name)) stale = true;
+        else if (n) {
           const img = n.media_item?.image?.path || n.media_item?.image || n.image?.path || n.image || '';
           items = [{ title: n.media_item?.name || n.name || '', artist: (n.media_item?.artists || []).map(x => x.name).join(', '), image: typeof img === 'string' ? img : '' }];
         }
@@ -1878,6 +1998,19 @@ Object.assign(K.Card.prototype, {
     this._fsQBusy = false;
     if (this._fsQKey !== key || !this._fs) return;
     const n = items.find(x => x.title) || null;
+    // the queue hadn't caught up yet: ask again in a moment (what's shown stays until then, unless it's clearly wrong)
+    if (stale && !n) {
+      if (tries < 6) {
+        clearTimeout(this._fsQRetry);
+        this._fsQRetry = setTimeout(() => { this._fsQRetry = null; if (this._fs && this._fsQKey === key) this._fsQueue(v, key, true, tries + 1); }, tries < 2 ? 800 : 2000);
+      }
+      return;
+    }
+    // a new song: one more look a few seconds on, in case the queue was still settling (shuffle, Radio Mode adding songs)
+    if (changed && !tries) {
+      clearTimeout(this._fsQRetry);
+      this._fsQRetry = setTimeout(() => { this._fsQRetry = null; if (this._fs && this._fsQKey === key) this._fsQueue(v, key, true, 99); }, 5000);
+    }
     this._fsNext = n;
     strip.hidden = !n;
     if (n) {

@@ -1743,7 +1743,7 @@ const CROW_MEDIA_SCR_CSS = `
 .cs-smap .cs-st1 { font-size: max(13px, 4.4cqmin); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.65; }
 .cs-smap small { flex-shrink: 0; font-size: max(8px, 1.9cqmin); font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.6; white-space: nowrap; }
 .cs-smap > div.on .cs-st1, .cs-smap > div.on small { opacity: 1; }
-.cs-smap > div.on::before { background: #ffc35a; box-shadow: 0 0 0 0 rgba(255,195,90,0.6); animation: cs-sglow 2.4s ease-in-out infinite; }
+.cs-smap > div.on::before { background: #ffc35a; box-shadow: 0 0 0 0 rgba(255,195,90,0.6); animation: cs-sglow 2.4s ease-in-out 3; }
 @keyframes cs-sglow { 50% { box-shadow: 0 0 0 1cqmin rgba(255,195,90,0.22); } }
 
 /* lists (lights, rooms, today's calendar): thin lines between rows, like the full-screen panels */
@@ -1774,6 +1774,7 @@ const CROW_MEDIA_SCR_CSS = `
 .cs-sclip.cs-sfb { -webkit-mask-image: linear-gradient(to bottom, #000 93%, transparent 100%); mask-image: linear-gradient(to bottom, #000 93%, transparent 100%); }
 .cs-sclip.cs-sft.cs-sfb { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 93%, transparent 100%); }
 .cs-sclip > [data-fit] { flex-shrink: 0; }
+.cs-sclip.cs-sover > [data-fit] { will-change: transform; }
 .cs-slist[data-size="many"], .cs-slist[data-size="lots"], .cs-sotiles[data-size="many"], .cs-sotiles[data-size="lots"] {
   display: grid; grid-template-rows: repeat(var(--rows, 4), auto); grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: 6cqw; width: 90cqw; }
 .cs-slist[data-size] > .cs-srow, .cs-sotiles[data-size] > .cs-sot { box-shadow: none; }
@@ -1819,7 +1820,6 @@ const CROW_MEDIA_SCR_CSS = `
 .cs-scam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .cs-scam.cs-snopic { display: flex; align-items: center; justify-content: center; }
 .cs-scam.cs-snopic .cs-sic { width: 22%; height: auto; aspect-ratio: 1; }
-.cs-scam.cs-srang { box-shadow: 0 0 0 max(2px, 0.5cqmin) #fff; }
 .cs-scl { position: absolute; left: 1.6cqmin; right: 1.6cqmin; bottom: 1.2cqmin; display: flex; justify-content: space-between; align-items: flex-end; gap: 1.6cqmin; text-shadow: 0 1px 6px rgba(0,0,0,0.6); }
 .cs-scl b { font-size: max(11px, 2.4cqmin); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cs-scl span { font-size: max(8px, 1.5cqmin); letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.9; flex-shrink: 0; }
@@ -1909,6 +1909,29 @@ const CROW_MEDIA_SCR_CSS = `
   .cs-stile:nth-child(3) { display: none; }
 }
 .cs-still *, .cs-still *::before, .cs-still *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition-duration: 0.001s !important; }
+/* Dark Screens (editor → Info Screens, off by default): each screen on black, with its own colour (made light
+   enough to read on black, --sc) kept for the headings, rings, bars, icons and dots, instead of filling the
+   screen. On an OLED screen a black pixel is switched off, so this uses far less power. */
+.cs-sdark { color: rgba(255,255,255,0.9); }
+.cs-sdark .cs-slab, .cs-sdark .cs-scorner, .cs-sdark .cs-shead { color: var(--sc); opacity: 1; }
+.cs-sdark .cs-st2 { opacity: 0.7; }
+.cs-sdark .cs-stime .d, .cs-sdark .cs-scount span { color: var(--sc); }
+.cs-sdark .cs-sdial .trk { stroke: rgba(255,255,255,0.12); }
+.cs-sdark .cs-sdial .val { stroke: var(--sc); }
+.cs-sdark .cs-sbar { background: rgba(255,255,255,0.14); }
+.cs-sdark .cs-sbar i { background: var(--sc) !important; }
+.cs-sdark .cs-sic svg { stroke: var(--sc); }
+.cs-sdark .cs-scal .cd { background: var(--sc); }
+.cs-sdark .cs-spills > div::before { box-shadow: inset 0 0 0 max(1.5px, 0.3cqmin) var(--sc); }
+.cs-sdark .cs-spills > div.on::before { background: var(--sc); }
+.cs-sdark .cs-sot + .cs-sot, .cs-sdark .cs-srow + .cs-srow { box-shadow: 0 -1px 0 rgba(255,255,255,0.14); }
+.cs-sdark .cs-smap > div { box-shadow: 0 1px 0 rgba(255,255,255,0.14); }
+.cs-sdark .cs-stile .sq, .cs-sdark .cs-scam { background: rgba(255,255,255,0.06); box-shadow: none; }
+.cs-sdark .cs-slyrw .ln { opacity: 0.25; }
+.cs-sdark .cs-slyrw .ln.past { opacity: 0.14; }
+.cs-sdark .cs-slyrw .ln.on { opacity: 1; }
+.cs-sdark-root .cs-sdots i, .cs-sdark-root .cs-sp-week ~ .cs-sdots i, .cs-sdark-root .cs-sp-open ~ .cs-sdots i { background: rgba(255,255,255,0.22); }
+.cs-sdark-root .cs-sdots i.on { background: var(--sc, #fff); }
 `;
 
 Object.assign(K.kit, { CrowMediaAtmCanvas, CrowMediaClockDrawer });
@@ -2046,11 +2069,31 @@ Object.assign(K.Card.prototype, {
     if (this._saverSky && this._saverSkyCv?.isConnected) this._saverSky.resize(art.offsetWidth, art.offsetHeight);
   },
 
+  // a screen's colour made light enough to read on black (Dark Screens): the same hue, brighter
+  _scrTint(hex) {
+    const m = String(hex || '').match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return '#ffffff';
+    const n = parseInt(m[1], 16), r = (n >> 16 & 255) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    let h = 0;
+    if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    const l0 = (mx + mn) / 2, s0 = d ? d / (1 - Math.abs(2 * l0 - 1)) : 0;
+    const s = Math.max(0.55, Math.min(0.9, s0)), l = 0.7;
+    return 'hsl(' + Math.round(h) + ', ' + Math.round(s * 100) + '%, ' + Math.round(l * 100) + '%)';
+  },
+
   _saverStop(now = false) {
     clearInterval(this._saverShuffleT); clearInterval(this._saverClockT); this._saverShuffleT = this._saverClockT = null;
     this._saverClearStyle();
     const el = this._saverEl;
     this._saverEl = null;
+    // what was resting underneath while it covered the screen picks up again straight away: full screen, or
+    // the main player (which was only redrawn for real changes meanwhile)
+    if (el?.classList.contains('cs-full')) {
+      if (this._fs) { try { this._fsRest?.(false); } catch (_) {} }
+      else { this._fsHassFp = null; try { const st = this._hass?.states?.[this._entity]; if (st) this.updateContent(st); } catch (_) {} }
+    }
     if (this._saverRO) { try { this._saverRO.disconnect(); } catch (_) {} }
     if (this._saverKey) { document.removeEventListener('keydown', this._saverKey, true); this._saverKey = null; }
     const host = this._saverHost;
@@ -3631,51 +3674,72 @@ Object.assign(K.Card.prototype, {
     const dotsEl = root.querySelector('.cs-sdots');
     const alive = () => this._saverEl === el && root.isConnected;
     const S = this._scrDefs();
-    const picked = () => {
+    // the screens with something to show: worked out every ten seconds (or when asked to be fresh), rather than
+    // every second, since that means looking through everything in Home Assistant
+    const hasKey = k => { try { return !!S[k]?.has(); } catch (_) { return false; } };
+    let pickedAt = 0, pickedList = null, pickedCfg = null;
+    const picked = (fresh) => {
       const want = Array.isArray(this._config?.screensaver_screens) ? this._config.screensaver_screens : null;
+      const now = Date.now();
+      if (!fresh && pickedList && pickedCfg === want && now - pickedAt < 10000) return pickedList;
       const keys = CROW_MEDIA_SCR_KEYS.filter(k => (want && want.length) ? want.includes(k) : !CROW_MEDIA_SCR_OFF.includes(k));
-      const ok = keys.filter(k => { try { return S[k].has(); } catch (_) { return false; } });
-      return ok.length ? ok : ['time'];
+      const ok = keys.filter(hasKey);
+      pickedAt = now; pickedCfg = want; pickedList = ok.length ? ok : ['time'];
+      return pickedList;
     };
+    const hidden = () => document.hidden || document.visibilityState === 'hidden';
     let cur = null, pane = null, upd = null;
+    // where a list is now: partway through a glide, at rest, or where it was left by hand
+    const posNow = (a) => a.leg ? a.leg.from + (a.leg.to - a.leg.from) * Math.min(1, (Date.now() - a.leg.at) / a.leg.ms) : (a.tf || 0);
     // the fades at the top and bottom of a list only show where there's more to scroll to
     const edges = (clip) => {
-      const max = clip.scrollHeight - clip.clientHeight, y = clip.scrollTop + (clip._auto?.tf || 0);
+      const a = clip._auto, max = a?.max ?? (clip.scrollHeight - clip.clientHeight), y = clip.scrollTop + (a ? posNow(a) : 0);
       clip.classList.toggle('cs-sft', max > 4 && y > 2);
       clip.classList.toggle('cs-sfb', max > 4 && y < max - 2);
     };
+    const tr = y => 'translate3d(0,' + (-y).toFixed(1) + 'px,0)';
+    // someone's touched it: it stops where it is and becomes an ordinary scrolling list
     const handBack = (clip) => {
       const a = clip._auto, list = clip.firstElementChild;
-      if (!a || !a.tf) return;
-      const y = a.tf;
-      a.tf = 0;
-      if (list) list.style.transform = '';
+      if (!a || (!a.leg && !a.tf)) return;
+      const y = posNow(a);
+      clearTimeout(a.t); a.t = 0; a.leg = null; a.tf = 0;
+      if (list) { list.style.transition = 'none'; list.style.transform = ''; }
       a.self = true;
       clip.scrollTop = Math.round(y);
     };
-    // the slow scroll of a list nobody is touching: down, a pause, back up, a pause
-    let driftRaf = 0, driftAt = 0;
-    const drift = (t) => {
-      driftRaf = 0;
-      if (!alive()) return;
-      const dt = driftAt ? Math.min(0.1, (t - driftAt) / 1000) : 0;
-      driftAt = t;
+    // The slow scroll of a list nobody is touching: down, a pause, back up, a pause. Each glide is handed to the
+    // browser as one transition, which it draws by itself on the graphics chip, so nothing runs frame by frame;
+    // a timer wakes it only at each end.
+    const glide = (clip, ms) => { clearTimeout(clip._auto.t); clip._auto.t = setTimeout(() => { clip._auto.t = 0; run(clip); }, Math.max(0, ms)); };
+    const run = (clip) => {
+      const a = clip._auto, list = clip.firstElementChild;
+      if (!alive() || !clip.isConnected || !list || !a) return;
+      if (hidden()) { glide(clip, 1500); return; }
       const now = Date.now();
-      pane?.querySelectorAll('.cs-sclip').forEach(clip => {
-        const a = clip._auto, list = clip.firstElementChild, max = clip.scrollHeight - clip.clientHeight;
-        if (!a || !list || max <= 4 || now < a.wait) return;
-        // carries on from wherever it was left (by hand or by itself)
-        if (clip.scrollTop) { a.pos = clip.scrollTop; a.self = true; clip.scrollTop = 0; }
-        a.pos = Math.max(0, Math.min(max, a.pos + a.dir * (a.dir > 0 ? 24 : 42) * dt));
-        a.tf = a.pos;
-        list.style.transform = 'translate3d(0,' + (-a.pos).toFixed(2) + 'px,0)';
+      // got to the end it was heading for: turns round after a pause
+      if (a.leg) {
+        if (now < a.leg.at + a.leg.ms) { glide(clip, a.leg.at + a.leg.ms - now); return; }
+        a.pos = a.tf = a.leg.to; a.leg = null;
+        if (a.dir > 0) { a.dir = -1; a.endAt = a.endAt || now; } else a.dir = 1;
+        a.wait = now + 3500;
         edges(clip);
-        if (a.pos >= max) { a.dir = -1; a.wait = now + 3500; a.endAt = a.endAt || now; }
-        else if (a.pos <= 0) { a.dir = 1; a.wait = now + 3500; }
-      });
-      driftRaf = requestAnimationFrame(drift);
+      }
+      const max = a.max ?? (clip.scrollHeight - clip.clientHeight);
+      if (max <= 4) return;
+      if (now < a.wait) { glide(clip, a.wait - now); return; }
+      // carries on from wherever it was left by hand
+      if (clip.scrollTop) { a.pos = clip.scrollTop; a.self = true; clip.scrollTop = 0; list.style.transition = 'none'; list.style.transform = tr(a.pos); a.tf = a.pos; list.getBoundingClientRect(); }
+      const from = Math.min(max, a.tf || 0), to = a.dir > 0 ? max : 0, dist = Math.abs(to - from);
+      const ms = Math.max(50, dist / (a.dir > 0 ? 24 : 42) * 1000);
+      a.leg = { from, to, at: now, ms };
+      a.tf = to;
+      list.style.transition = 'transform ' + Math.round(ms) + 'ms linear';
+      list.style.transform = tr(to);
+      clip.classList.toggle('cs-sft', from > 2 || to > 2);
+      clip.classList.toggle('cs-sfb', from < max - 2 || to < max - 2);
+      glide(clip, ms + 30);
     };
-    driftRaf = requestAnimationFrame(drift);
     const fit = (pn) => {
       if (!pn) return;
       pn.querySelectorAll('[data-fit]').forEach(list => {
@@ -3694,17 +3758,21 @@ Object.assign(K.Card.prototype, {
         // more than fits: it can be scrolled, and scrolls slowly by itself when left alone
         if (!clip._auto) {
           clip._auto = { dir: 1, wait: Date.now() + 3000, pos: 0 };
-          const held = () => { handBack(clip); clip._auto.wait = Date.now() + 8000; clip._auto.pos = clip.scrollTop; };
+          const held = () => { handBack(clip); clip._auto.wait = Date.now() + 8000; clip._auto.pos = clip.scrollTop; glide(clip, 8000); };
           clip.addEventListener('scroll', () => {
             edges(clip);
-            if (clip.scrollTop + (clip._auto.tf || 0) >= clip.scrollHeight - clip.clientHeight - 2) clip._auto.endAt = clip._auto.endAt || Date.now();
+            if (clip.scrollTop + posNow(clip._auto) >= clip.scrollHeight - clip.clientHeight - 2) clip._auto.endAt = clip._auto.endAt || Date.now();
             if (!clip._auto.self) held();
             clip._auto.self = false;
           }, { passive: true });
           ['touchstart', 'wheel', 'pointerdown'].forEach(ev => clip.addEventListener(ev, held, { passive: true }));
         }
-        clip.classList.toggle('cs-sover', clip.scrollHeight - clip.clientHeight > 4);
-        edges(clip);
+        // how far it can scroll, measured here once a second rather than on every frame of the drift
+        const max = clip.scrollHeight - clip.clientHeight;
+        clip._auto.max = max;
+        clip.classList.toggle('cs-sover', max > 4);
+        if (!clip._auto.leg) edges(clip);
+        if (max > 4 && !clip._auto.t && !clip._auto.leg) glide(clip, clip._auto.wait - Date.now());
       });
     };
     const dots = (list) => {
@@ -3716,8 +3784,19 @@ Object.assign(K.Card.prototype, {
       const def = S[key] || S.time;
       const next = document.createElement('div');
       next.className = 'cs-sp cs-sp-' + key;
-      next.style.background = def.bg;
-      if (def.ink) next.style.color = def.ink;
+      // Dark Screens: black, with the screen's colour (lightened to read on black) for its details
+      const dark = this._config?.screensaver_screens_dark === true;
+      root.classList.toggle('cs-sdark-root', dark);
+      if (dark) {
+        const tint = this._scrTint(def.bg);
+        next.classList.add('cs-sdark');
+        next.style.background = '#000';
+        next.style.setProperty('--sc', tint);
+        root.style.setProperty('--sc', tint);
+      } else {
+        next.style.background = def.bg;
+        if (def.ink) next.style.color = def.ink;
+      }
       root.insertBefore(next, dotsEl);
       try { this._scrSkyStop?.(); } catch (_) {}
       let u = null;
@@ -3743,7 +3822,7 @@ Object.assign(K.Card.prototype, {
       dots(picked());
     };
     const step = (dir) => {
-      const list = picked();
+      const list = picked(true);
       let i = list.indexOf(cur);
       if (i === -1) i = dir > 0 ? -1 : 0;
       const key = list[(i + dir + list.length) % list.length];
@@ -3771,7 +3850,7 @@ Object.assign(K.Card.prototype, {
     const restart = () => {
       clearInterval(autoT); autoT = null;
       shownAt = Date.now();
-      if (every() > 0) autoT = setInterval(() => { if (alive() && ready()) step(1); }, 250);
+      if (every() > 0) autoT = setInterval(() => { if (alive() && !hidden() && ready()) step(1); }, 500);
     };
     // full screen: swipe left or right (or the arrow keys) to change screen. A swipe isn't a tap, so it
     // doesn't wake the card. Over the artwork the screens just change by themselves.
@@ -3802,16 +3881,27 @@ Object.assign(K.Card.prototype, {
     // the live parts (time, progress, lyrics…) once a second, and a screen that's run out of things to
     // show (the song ended, the doors were shut) gives way to the next
     const tick = setInterval(() => {
-      if (!alive()) return;
+      if (!alive() || hidden()) return;
       const list = picked();
-      if (cur && !list.includes(cur)) { step(1); return; }
+      // the screen showing is checked every second; the rest every ten
+      if (cur && list.length > 1 && !hasKey(cur)) { step(1); return; }
+      if (cur && !list.includes(cur) && hasKey(cur)) pickedAt = 0;
       dots(list);
       try { upd?.(); } catch (_) {}
       fit(pane);
     }, 1000);
-    const lyrTick = setInterval(() => { if (alive() && cur === 'lyrics') { try { upd?.(); } catch (_) {} } }, 250);
+    const lyrTick = setInterval(() => { if (alive() && cur === 'lyrics' && !hidden()) { try { upd?.(); } catch (_) {} } }, 250);
+    // hidden (another app, another tab, the screen locked): everything waits; back again, it carries on
+    const vis = () => {
+      if (hidden()) return;
+      shownAt = Math.max(shownAt, Date.now() - 2000);
+      try { upd?.(); } catch (_) {}
+      fit(pane);
+    };
+    document.addEventListener('visibilitychange', vis);
     this._scrOff = () => {
-      clearInterval(autoT); clearInterval(tick); clearInterval(lyrTick); if (driftRaf) cancelAnimationFrame(driftRaf);
+      document.removeEventListener('visibilitychange', vis);
+      clearInterval(autoT); clearInterval(tick); clearInterval(lyrTick); root.querySelectorAll('.cs-sclip').forEach(c => clearTimeout(c._auto?.t));
       el.removeEventListener('pointerdown', down); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', cancel);
       document.removeEventListener('keydown', key, true);
       try { this._scrSkyStop?.(); } catch (_) {}
@@ -3847,21 +3937,20 @@ Object.assign(K.Card.prototype, {
       const h24 = this._hass?.locale?.time_format === '24';
       try { return new Date(ms).toLocaleTimeString(this._hass?.locale?.language || undefined, { hour: h24 ? '2-digit' : 'numeric', minute: '2-digit', hour12: this._hass?.locale?.time_format === '12' ? true : h24 ? false : undefined }); } catch (_) { return ''; }
     };
-    // when something happened: the time today, else yesterday, the day this week, or the date
-    const when = (ms) => {
-      const d = new Date(ms), t0 = new Date(); t0.setHours(0, 0, 0, 0);
-      const lang = this._hass?.locale?.language || undefined;
-      if (ms >= t0.getTime()) return clock(ms);
-      if (ms >= t0.getTime() - 86400000) return 'Yesterday ' + clock(ms);
-      try { return (ms >= t0.getTime() - 6 * 86400000 ? d.toLocaleDateString(lang, { weekday: 'short' }) : d.toLocaleDateString(lang, { day: 'numeric', month: 'short' })) + ' ' + clock(ms); } catch (_) { return clock(ms); }
+    // a camera's picture at the size it's shown (Home Assistant's camera proxy scales it down before sending it),
+    // so the iPad isn't fetching and decoding full-size pictures to show them small
+    const sized = (url, tile) => {
+      if (!/\/api\/camera_proxy\//.test(url)) return url;
+      const w = Math.min(1920, Math.max(320, Math.ceil((tile.clientWidth || 640) * Math.min(2, window.devicePixelRatio || 1) / 160) * 160));
+      return url + (url.includes('?') ? '&' : '?') + 'width=' + w;
     };
     // a grid of camera pictures: the tiles stay, and only their pictures are swapped, every ten seconds in full
-    // screen (thirty over the artwork); each tile says when its picture is from, or when its doorbell rang
+    // screen (thirty over the artwork); a doorbell that's just rung says when
     const camGrid = (p, title, get) => {
       p.innerHTML = corner(title, '') + '<div class="cs-scams" data-fit></div>';
       const box = p.querySelector('.cs-scams'), c = p.querySelector('.cs-scorner span:last-child');
       let lastAt = 0;
-      const every = () => (this._saverEl?.classList.contains('cs-full') ? 10000 : 30000);
+      const every = () => (this._saverEl?.classList.contains('cs-full') ? 20000 : 60000);
       return () => {
         const K = get();
         const ids = K.map(k => k.id).join('|');
@@ -3883,14 +3972,14 @@ Object.assign(K.Card.prototype, {
         const rang = K.filter(k => k.at).sort((a, b) => b.at - a.at)[0];
         if (now - lastAt < every()) { if (rang) c.textContent = 'Rang ' + clock(rang.at); return; }
         lastAt = now;
-        const t = clock(now);
-        c.textContent = rang ? 'Rang ' + clock(rang.at) : (t ? 'Updated ' + t : '');
+        c.textContent = rang ? 'Rang ' + clock(rang.at) : '';
         K.forEach(k => {
           const tile = box.querySelector('[data-id="' + CSS.escape(k.id) + '"]');
           if (!tile) return;
           // a snapshot says when it was taken; a picture that's kept up to date, when it was last fetched
-          if (!k.at) tile.querySelector('span').textContent = k.snap ? (k.taken ? 'Snapshot · ' + when(k.taken) : 'Snapshot') : t;
-          if (k.pic) tile.querySelector('img').src = k.pic + (k.pic.includes('?') ? '&' : '?') + 't=' + lastAt;
+          // no times on the pictures: only a doorbell that's just rung says so
+          if (!k.at) tile.querySelector('span').textContent = '';
+          if (k.pic) { const u = sized(k.pic, tile); tile.querySelector('img').src = u + (u.includes('?') ? '&' : '?') + 't=' + lastAt; }
         });
       };
     };
@@ -4270,7 +4359,8 @@ Object.assign(K.Card.prototype, {
     const h = this._hass, now = Date.now();
     if (!this._scrMemos) this._scrMemos = {};
     const m = this._scrMemos[key];
-    if (m && m.states === h?.states && now - m.at < 2000) return m.v;
+    // at most every two seconds, however often Home Assistant's states change
+    if (m && now - m.at < 2000) return m.v;
     const v = fn();
     this._scrMemos[key] = { states: h?.states, at: now, v };
     return v;
@@ -4943,33 +5033,9 @@ Object.assign(K.Card.prototype, {
         const room = this._scrArea(best.id);
         if (room && name.toLowerCase().startsWith(room.toLowerCase() + ' ') && name.length > room.length + 1) name = name.slice(room.length + 1);
         name = name ? name.charAt(0).toUpperCase() + name.slice(1) : this._scrName(best.id, '');
-        const snap = best.r === 3;
-        return { id: best.id, name, bell: g.bell, ids: g.ids.map(x => x.id), pic: this._scrPic(states[best.id].attributes.entity_picture), snap, taken: snap ? this._scrCamTaken(best.id) : 0 };
+        return { id: best.id, name, bell: g.bell, ids: g.ids.map(x => x.id), pic: this._scrPic(states[best.id].attributes.entity_picture) };
       }).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     });
-  },
-  // When a snapshot camera's picture was taken: from its own attributes when it says, else the latest motion,
-  // ring or activity on the same device (an event, a last-motion or last-activity sensor, or a motion sensor)
-  _scrCamTaken(id) {
-    const h = this._hass, states = h?.states || {}, now = Date.now() + 60000;
-    const ok = v => { const t = typeof v === 'number' ? (v < 1e12 ? v * 1000 : v) : new Date(v).getTime(); return Number.isFinite(t) && t > 946684800000 && t <= now ? t : 0; };
-    const a = states[id]?.attributes || {};
-    let best = 0;
-    for (const [k, v] of Object.entries(a)) if (/last.?(snapshot|capture|update|recording|record|event|motion|image)|captured|snapshot.?time|image.?last.?updated|timestamp/i.test(k)) best = Math.max(best, ok(v));
-    if (best) return best;
-    const dev = h?.entities?.[id]?.device_id;
-    if (!dev) return 0;
-    for (const [rid, re] of Object.entries(h?.entities || {})) {
-      if (re.device_id !== dev || rid === id) continue;
-      const s = states[rid];
-      if (!s) continue;
-      const nm = rid + ' ' + (s.attributes?.friendly_name || '');
-      if (rid.startsWith('event.')) best = Math.max(best, ok(s.state));
-      else if (rid.startsWith('sensor.') && s.attributes?.device_class === 'timestamp' && /last|motion|ding|activity|recording|snapshot|event|capture/i.test(nm)) best = Math.max(best, ok(s.state));
-      else if (rid.startsWith('binary_sensor.') && /motion|occupancy|person|ding|doorbell/i.test(nm + ' ' + (s.attributes?.device_class || ''))) best = Math.max(best, s.state === 'on' ? Date.now() : ok(s.last_changed));
-      else if (rid.startsWith('image.')) best = Math.max(best, ok(s.attributes?.image_last_updated || s.state));
-    }
-    return best;
   },
   // Every doorbell: each doorbell camera, always, with when it rang if that was in the last half hour (from a
   // doorbell event entity, or a doorbell or ding sensor, on its device or in its room); and a doorbell with no
@@ -4980,7 +5046,7 @@ Object.assign(K.Card.prototype, {
       const areaOf = id => this._scrAreaId?.(id) || '';
       const devOf = id => h?.entities?.[id]?.device_id || '';
       const out = this._scrCamGroups().filter(g => g.bell)
-        .map(g => ({ id: g.id, name: g.name, pic: g.pic, at: null, snap: g.snap, taken: g.taken, devs: g.ids.map(devOf).filter(Boolean), area: areaOf(g.id) }));
+        .map(g => ({ id: g.id, name: g.name, pic: g.pic, at: null, devs: g.ids.map(devOf).filter(Boolean), area: areaOf(g.id) }));
       for (const [id, s] of Object.entries(states)) {
         if (this._scrSkip(id)) continue;
         let at = NaN;
@@ -5004,7 +5070,7 @@ Object.assign(K.Card.prototype, {
     return this._scrMemo('cameras', () => {
       const want = Array.isArray(this._config?.screensaver_screens) && this._config.screensaver_screens.length ? this._config.screensaver_screens : null;
       const bells = !want || want.includes('doorbell');
-      return this._scrCamGroups().filter(g => !(bells && g.bell)).map(g => ({ id: g.id, name: g.name, pic: g.pic, at: null, snap: g.snap, taken: g.taken }));
+      return this._scrCamGroups().filter(g => !(bells && g.bell)).map(g => ({ id: g.id, name: g.name, pic: g.pic, at: null }));
     });
   },
 

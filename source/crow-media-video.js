@@ -2543,7 +2543,7 @@ Include ALL tracks. Use null for unknown fields.`;
     try {
       const store = JSON.parse(localStorage.getItem('crow_media_ai_similar_added') || '{}');
       store[cacheKey] = [..._alreadyAdded];
-      localStorage.setItem('crow_media_ai_similar_added', JSON.stringify(store));
+      localStorage.setItem('crow_media_ai_similar_added', JSON.stringify(store)); this._personalSave?.();
     } catch (_) {}
 
     this._maBatchLoading = false;
@@ -2723,7 +2723,7 @@ Include ALL tracks. Use null for unknown fields.`;
     try {
       const store = JSON.parse(localStorage.getItem('crow_media_ai_same_year_added') || '{}');
       store[cacheKey] = [..._alreadyAdded];
-      localStorage.setItem('crow_media_ai_same_year_added', JSON.stringify(store));
+      localStorage.setItem('crow_media_ai_same_year_added', JSON.stringify(store)); this._personalSave?.();
     } catch (_) {}
 
     this._maBatchLoading = false;
@@ -2905,7 +2905,7 @@ Include ALL tracks. Use null for unknown fields.`;
     try {
       const store = JSON.parse(localStorage.getItem('crow_media_ai_same_genre_year_added') || '{}');
       store[cacheKey] = [..._alreadyAdded];
-      localStorage.setItem('crow_media_ai_same_genre_year_added', JSON.stringify(store));
+      localStorage.setItem('crow_media_ai_same_genre_year_added', JSON.stringify(store)); this._personalSave?.();
     } catch (_) {}
 
     this._maBatchLoading = false;
@@ -3083,7 +3083,7 @@ Include ALL tracks. Use null for unknown fields.`;
     try {
       const store = JSON.parse(localStorage.getItem('crow_media_ai_same_genre_added') || '{}');
       store[cacheKey] = [..._alreadyAdded];
-      localStorage.setItem('crow_media_ai_same_genre_added', JSON.stringify(store));
+      localStorage.setItem('crow_media_ai_same_genre_added', JSON.stringify(store)); this._personalSave?.();
     } catch (_) {}
 
     this._maBatchLoading = false;
