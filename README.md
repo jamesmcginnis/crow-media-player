@@ -878,7 +878,3 @@ The card is split into a main file and parts that load when they're first used (
 ## Support
 
 Report problems or ask for features at [GitHub Issues](https://github.com/jamesmcginnis/crow-media-player/issues). New versions are listed under [Releases](https://github.com/jamesmcginnis/crow-media-player/releases), and HACS offers them as updates.
-
-## Licence
-
-MIT. See [LICENSE.md](LICENSE.md).
