@@ -17,6 +17,7 @@ LAZY_FILES = {
     "panels": "crow-media-panels.js",
     "library": "crow-media-library.js",
     "sendspin": "crow-media-sendspin.js",
+    "screentime": "crow-media-screentime.js",
 }
 
 STORAGE_VERSION = 1

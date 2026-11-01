@@ -114,6 +114,8 @@ class CrowMedia:
         # Radio Mode switched on or off (by a card, or anything else using Queue Actions): read it again
         self._unsubs.append(self.hass.bus.async_listen(EVENT_CALL_SERVICE, self._on_service))
         self._unsubs.append(async_track_time_change(self.hass, self._alarm_minute, second=0))
+        # today's listening starts again at midnight: the sensors are told then, not at the next song
+        self._unsubs.append(async_track_time_change(self.hass, callback(lambda _now: self.changed()), hour=0, minute=0, second=2))
         self._unsubs.append(async_track_time_interval(self.hass, self._every_minute, timedelta(minutes=1)))
         if self.house["sleep"]:
             self._sleep_start()
@@ -350,7 +352,8 @@ class CrowMedia:
         return out
 
     def stats(self) -> dict:
-        if self._stats is not None:
+        # worked out again after midnight, so "today" starts again then even when nothing has played since
+        if self._stats is not None and self._stats.get("_day") == dt_util.now().date().isoformat():
             return self._stats
         muted = self._muted()
         entries = [e for e in self.house["log"].values() if (e.get("data") or {}).get("artist", "").lower() not in muted]
@@ -380,26 +383,71 @@ class CrowMedia:
         while d in days:
             streak += 1
             d -= timedelta(days=1)
+        now_t = now_ms()
+        songs_today, heard_today = self._heard(entries, day0, now_t, ms)
+        songs_week, heard_week = self._heard(entries, week0, now_t, ms)
         self._stats = {
-            "today_minutes": round(sum(ms(e) for e in today) / 60000), "week_minutes": round(sum(ms(e) for e in week) / 60000),
-            "tracks_today": len(today), "tracks_week": len(week),
+            "today_minutes": round(heard_today / 60000), "week_minutes": round(heard_week / 60000),
+            "tracks_today": songs_today, "tracks_week": songs_week,
             "top_artists": artists[:5], "top_tracks": tracks[:5], "last": last, "streak": streak,
             "playing": [e for e, n in self.now.items() if n.get("state") == "playing" and n.get("kind")],
             "last_ts": max((e["ts"] for e in entries), default=None),
-            "today_by_speaker": self._by_speaker(today, ms),
+            "today_by_speaker": self._by_speaker(entries, ms, day0, now_t),
+            "_day": now.date().isoformat(),
         }
         return self._stats
 
     @staticmethod
-    def _by_speaker(entries: list, ms: Callable) -> dict:
-        """Milliseconds and songs for each speaker."""
-        out: dict[str, dict] = {}
+    def _heard(entries: list, start: int, end: int, ms: Callable) -> tuple[int, int]:
+        """Songs played, and milliseconds something was playing, from start (midnight, say) to end (now).
+
+        A song skipped part-way counts only until the next one started on that speaker; one started before
+        start counts from start; songs playing at the same time (several rooms, or one play logged twice)
+        count that time once, so the time can never be more than end - start. The same song in several
+        rooms at once (a group) is one song.
+        """
+        plays = sorted((e for e in entries if (e.get("ts") or 0) < end), key=lambda e: e["ts"])
+        next_on: dict[str, int] = {}
+        spans: list[tuple[int, int]] = []
+        seen: list[tuple[str, int]] = []
+        songs = 0
+        for e in reversed(plays):
+            ts, who = e["ts"], e["data"].get("entity") or ""
+            stop = ts + ms(e)
+            if who in next_on:
+                stop = min(stop, next_on[who])
+            next_on[who] = ts
+            stop = min(stop, end)
+            if stop > start:
+                spans.append((max(ts, start), stop))
+            if ts >= start:
+                k = f"{e['data'].get('artist')}|{e['data'].get('title')}".lower()
+                if not any(k == sk and abs(ts - st) <= 600_000 for sk, st in seen):
+                    songs += 1
+                    seen.append((k, ts))
+        total, a, b = 0, -1, -1
+        for x, y in sorted(spans):
+            if x > b:
+                total += max(0, b - a)
+                a, b = x, y
+            elif y > b:
+                b = y
+        total += max(0, b - a)
+        return songs, total
+
+    @staticmethod
+    def _by_speaker(entries: list, ms: Callable, start: int, end: int) -> dict:
+        """Milliseconds and songs for each speaker, from start (midnight) to end (now), counted as _heard does."""
+        by: dict[str, list] = {}
         for e in entries:
             eid = e["data"].get("entity") or ""
             if eid:
-                o = out.setdefault(eid, {"ms": 0, "tracks": 0})
-                o["ms"] += ms(e)
-                o["tracks"] += 1
+                by.setdefault(eid, []).append(e)
+        out: dict[str, dict] = {}
+        for eid, items in by.items():
+            n, t = CrowMedia._heard(items, start, end, ms)
+            if n or t:
+                out[eid] = {"ms": t, "tracks": n}
         return out
 
     def top_artists(self, days: int = 60, n: int = 12) -> list[str]:

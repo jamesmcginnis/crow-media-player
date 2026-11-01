@@ -1,10 +1,11 @@
 """Made for You mixes: playlists made by Home Assistant from what the house listens to.
 
-On Repeat, Your Month in Music and Forgotten Favourites come straight from the listening history. Discover
-Weekly and the mood mixes are chosen by the AI from the house's taste. Every song is checked against Music
+On Repeat, Your Month in Music, Forgotten Favourites, the Daily Mixes, the room mixes, Time of Day, the
+Weekend Mix, Fresh Finds and Artist Spotlight come straight from the listening history (no AI). Discover Weekly
+and the mood mixes are chosen by the AI from the house's taste. Every song is checked against Music
 Assistant, so only songs it can play are kept, and the mixes are kept here (Music Assistant can't be given
-new playlists from Home Assistant). They're made again each week on the chosen day, and the month mix on the
-1st of each month.
+new playlists from Home Assistant). They're made again each week on the chosen day, the month mix on the 1st
+of each month, and the Daily Mixes and Time of Day mixes every morning.
 """
 from __future__ import annotations
 
@@ -55,8 +56,41 @@ KINDS: dict[str, dict[str, Any]] = {
                 "colors": ["#5E5CE6", "#0A84FF"], "source": "ai"},
     "drive": {"title": "Road Trip", "about": "Windows-down singalongs.", "mood": "a long road trip with singalongs",
               "colors": ["#32D74B", "#FFD60A"], "source": "ai"},
+    # one kind can make several mixes (Daily Mix 1-3, a mix for each room, morning / afternoon / evening)
+    "daily": {"title": "Daily Mixes", "about": "Artists the house plays together.", "source": "history", "every_day": True,
+              "colors": ["#FF375F", "#BF5AF2"]},
+    "rooms": {"title": "Room Mixes", "about": "The songs played most in this room.", "source": "history",
+              "colors": ["#30B0C7", "#5E5CE6"]},
+    "timeofday": {"title": "Time of Day", "about": "What the house plays at this time of day.", "source": "history", "every_day": True,
+                  "colors": ["#FFD60A", "#FF9F0A"]},
+    "weekend": {"title": "Weekend Mix", "about": "What the house plays on Saturdays and Sundays.", "source": "history",
+                "colors": ["#FF6482", "#FFB340"]},
+    "fresh": {"title": "Fresh Finds", "about": "Songs the house started playing in the last 30 days.", "source": "history",
+              "colors": ["#34C759", "#30B0C7"]},
+    "spotlight": {"title": "Artist Spotlight", "about": "This month's most played artist: the songs you play, and some you haven't heard yet.",
+                  "source": "history", "colors": ["#FF2D55", "#5E5CE6"]},
 }
-DEFAULT_KINDS = ["repeat", "month", "forgotten", "discover", "sunday", "dinner"]
+DEFAULT_KINDS = ["repeat", "month", "forgotten", "discover", "sunday", "dinner",
+                 "daily", "rooms", "timeofday", "weekend", "fresh", "spotlight"]
+# the kinds there were before the history mixes were added: someone who chose their mixes in Configure then gets
+# the new ones too (until they next save Configure, which records every kind they've seen)
+OLD_KINDS = ["repeat", "month", "forgotten", "discover", "sunday", "focus", "dinner", "workout", "evening", "drive"]
+DAILY_COLORS = [["#FF375F", "#BF5AF2"], ["#30D158", "#64D2FF"], ["#FF9F0A", "#FF453A"]]
+ROOM_COLORS = [["#30B0C7", "#5E5CE6"], ["#FF9F0A", "#FF2D55"], ["#32D74B", "#0A84FF"], ["#BF5AF2", "#FF6482"],
+               ["#FFD60A", "#34C759"], ["#64D2FF", "#AF52DE"]]
+PERIODS = {"morning": ("Morning Mix", "What the house plays in the morning.", ["#FFD60A", "#FF9F0A"]),
+           "afternoon": ("Afternoon Mix", "What the house plays in the afternoon.", ["#64D2FF", "#0A84FF"]),
+           "evening": ("Evening Mix", "What the house plays in the evening.", ["#5E5CE6", "#BF5AF2"])}
+MAX_ROOMS = 6
+SESSION_GAP_MS = 45 * 60_000
+
+
+def _period(hour: int) -> str:
+    return "morning" if 5 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening"
+
+
+def _main_artist(a: Any) -> str:
+    return re.split(r"\s*(?:,|&| feat\.? | ft\.? | x | with )\s*", str(a or ""), flags=re.I)[0].strip()
 
 
 def _norm(s: Any) -> str:
@@ -81,7 +115,14 @@ class Mixes:
 
     def kinds(self) -> list[str]:
         k = self.m.options.get("mix_kinds")
-        return [x for x in (k if isinstance(k, list) else DEFAULT_KINDS) if x in KINDS]
+        if not isinstance(k, list):
+            return [x for x in DEFAULT_KINDS if x in KINDS]
+        seen = self.m.options.get("mix_kinds_seen")
+        seen = seen if isinstance(seen, list) else OLD_KINDS
+        return [x for x in KINDS if x in k or (x in DEFAULT_KINDS and x not in seen)]
+
+    def _of(self, kind: str) -> list[dict]:
+        return [mx for mx in self.m.house["mixes"].values() if mx.get("kind") == kind]
 
     def refresh_day(self) -> int:
         d = str(self.m.options.get("mix_day") or "mon")[:3].lower()
@@ -106,6 +147,8 @@ class Mixes:
         due = []
         if local.weekday() == self.refresh_day():
             due += [k for k in self.kinds() if k != "month"]
+        else:
+            due += [k for k in self.kinds() if KINDS[k].get("every_day")]
         if local.day == 1 and "month" in self.kinds():
             due.append("month")
         if due:
@@ -118,17 +161,22 @@ class Mixes:
         have = self.m.house["mixes"]
         now = dt_util.now()
         due = []
+        today = int(now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000)
         for k in self.kinds():
-            mix = have.get(k)
-            if not mix:
+            mixes = self._of(k)
+            made = max((mx.get("made") or 0 for mx in mixes), default=0)
+            if not mixes:
                 due.append(k)
             elif k == "month":
-                if mix.get("period") != self._last_month(now)[2]:
+                if mixes[0].get("period") != self._last_month(now)[2]:
                     due.append(k)
-            elif time.time() * 1000 - (mix.get("made") or 0) > 8 * 86_400_000:
+            elif KINDS[k].get("every_day"):
+                if made < today:
+                    due.append(k)
+            elif time.time() * 1000 - made > 8 * 86_400_000:
                 due.append(k)
         # mixes no longer chosen in Configure go
-        gone = [k for k in have if k not in self.kinds()]
+        gone = [i for i, mx in have.items() if mx.get("kind", i) not in self.kinds()]
         for k in gone:
             del have[k]
         if gone:
@@ -161,13 +209,18 @@ class Mixes:
                 if kind not in KINDS:
                     continue
                 try:
-                    mix = await self._make_one(kind, entry_id)
+                    mixes = await self._make_kind(kind, entry_id)
                 except Exception as err:  # noqa: BLE001 - one mix failing doesn't stop the rest
                     _LOGGER.warning("Crow Media Player couldn't make %s: %s", KINDS[kind]["title"], err)
                     continue
-                if mix:
-                    self.m.house["mixes"][kind] = mix
-                    made.append(mix["title"])
+                if mixes:
+                    # this kind's mixes from before go (a room that's no longer played in, say)
+                    have = self.m.house["mixes"]
+                    for i in [i for i, mx in have.items() if mx.get("kind", i) == kind]:
+                        del have[i]
+                    for mix in mixes:
+                        have[mix["id"]] = mix
+                        made.append(mix["title"])
                     self.m.save_house()
                     self.m.push({"type": "mixes"})
         finally:
@@ -198,6 +251,231 @@ class Mixes:
             c["n"] += 1
             c["last"] = max(c["last"], e.get("ts") or 0)
         return sorted(counts.values(), key=lambda c: (-c["n"], -c["last"]))
+
+    async def _make_kind(self, kind: str, entry_id: str) -> list[dict]:
+        if kind == "daily":
+            return await self._make_daily(entry_id)
+        if kind == "rooms":
+            return await self._make_rooms(entry_id)
+        if kind == "timeofday":
+            return await self._make_timeofday(entry_id)
+        if kind == "weekend":
+            return [m for m in [await self._make_weekend(entry_id)] if m]
+        if kind == "fresh":
+            return [m for m in [await self._make_fresh(entry_id)] if m]
+        if kind == "spotlight":
+            return [m for m in [await self._make_spotlight(entry_id)] if m]
+        return [m for m in [await self._make_one(kind, entry_id)] if m]
+
+    async def _finish(self, mid: str, kind: str, title: str, about: str, colors: list[str], cands: list[dict],
+                      entry_id: str, shuffle: bool = True, **extra: Any) -> dict | None:
+        """Check the songs against Music Assistant and make the mix (None if too few can be played)."""
+        if len(cands) < MIN_TRACKS:
+            _LOGGER.debug("%s: only %s songs so far", title, len(cands))
+            return None
+        tracks = (await self._resolve(cands[: MAX_TRACKS + 20], entry_id))[:MAX_TRACKS]
+        if len(tracks) < MIN_TRACKS:
+            return None
+        if shuffle:
+            random.shuffle(tracks)
+        return {"id": mid, "kind": kind, "title": title, "about": about, "colors": colors,
+                "made": int(time.time() * 1000), "tracks": tracks, **extra}
+
+    def _since(self, days: int) -> list[dict]:
+        cutoff = int(time.time() * 1000) - days * 86_400_000
+        return [e for e in self._entries() if (e.get("ts") or 0) >= cutoff]
+
+    @staticmethod
+    def _local(e: dict) -> datetime:
+        return dt_util.as_local(dt_util.utc_from_timestamp((e.get("ts") or 0) / 1000))
+
+    @staticmethod
+    def _varied(ranked: list[dict]) -> list[dict]:
+        """The most played first, but a different selection each time it's made: the top songs, then a random
+        pick weighted towards the more played ones."""
+        top, rest = ranked[:15], ranked[15:]
+        rest = sorted(rest, key=lambda c: -random.random() * (c["n"] + 1))
+        return top + rest
+
+    # Daily Mixes: the artists the house plays in the same sittings are grouped together (three groups, such as a
+    # rock mix, a hip-hop mix and an 80s mix), each named after its main artists
+    async def _make_daily(self, entry_id: str) -> list[dict]:
+        entries = sorted(self._since(90), key=lambda e: ((e["data"].get("entity") or ""), e["ts"]))
+        sessions: list[set[str]] = []
+        names: dict[str, str] = {}
+        plays: dict[str, int] = {}
+        last_who, last_ts, cur = None, 0, set()
+        for e in entries:
+            who = e["data"].get("entity") or ""
+            a = _main_artist(e["data"].get("artist"))
+            k = _norm(a)
+            if not k:
+                continue
+            names.setdefault(k, a)
+            plays[k] = plays.get(k, 0) + 1
+            if who != last_who or e["ts"] - last_ts > SESSION_GAP_MS:
+                if cur:
+                    sessions.append(cur)
+                cur = set()
+            cur.add(k)
+            last_who, last_ts = who, e["ts"]
+        if cur:
+            sessions.append(cur)
+        top = [k for k, n in sorted(plays.items(), key=lambda kv: -kv[1]) if n >= 2][:40]
+        if len(top) < 3:
+            return []
+        in_sess = {k: [i for i, ss in enumerate(sessions) if k in ss] for k in top}
+        def sim(a: str, b: str) -> float:
+            sa, sb = set(in_sess[a]), set(in_sess[b])
+            return len(sa & sb) / ((len(sa) * len(sb)) ** 0.5) if sa and sb else 0.0
+        S = {(a, b): sim(a, b) for a in top for b in top if a < b}
+        def s(a: str, b: str) -> float:
+            return S.get((a, b) if a < b else (b, a), 0.0)
+        clusters = [[k] for k in top]
+        while len(clusters) > 3:
+            best, bi, bj = 0.0, -1, -1
+            for i in range(len(clusters)):
+                for j in range(i + 1, len(clusters)):
+                    v = sum(s(a, b) for a in clusters[i] for b in clusters[j]) / (len(clusters[i]) * len(clusters[j]))
+                    if v > best:
+                        best, bi, bj = v, i, j
+            if bi < 0:
+                break
+            clusters[bi] += clusters.pop(bj)
+        weight = lambda c: sum(plays[k] for k in c)  # noqa: E731
+        clusters.sort(key=lambda c: -weight(c))
+        groups, spare = clusters[:3], [k for c in clusters[3:] for k in c]
+        # artists left on their own join the group they were played with most
+        for k in spare:
+            scores = [sum(s(k, b) for b in g) / len(g) for g in groups]
+            if scores and max(scores) > 0:
+                groups[scores.index(max(scores))].append(k)
+        ranked = self._rank(entries)
+        out: list[dict] = []
+        for g in groups:
+            members = set(g)
+            cands = self._varied([c for c in ranked if _norm(_main_artist(c["artist"])) in members])
+            lead = sorted(g, key=lambda k: -plays[k])[:3]
+            n = len(out) + 1
+            mix = await self._finish(f"daily{n}", "daily", f"Daily Mix {n}",
+                                     ", ".join(names[k] for k in lead) + (" and more." if len(g) > 3 else "."),
+                                     DAILY_COLORS[(n - 1) % 3], cands, entry_id, order=n)
+            if mix:
+                out.append(mix)
+        return out
+
+    # Room Mixes: the songs played most on each speaker over the last two months (speakers in the same area are one
+    # room), for the rooms played in most
+    async def _make_rooms(self, entry_id: str) -> list[dict]:
+        from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
+        ents, devs, areas = er.async_get(self.hass), dr.async_get(self.hass), ar.async_get(self.hass)
+        rooms: dict[str, dict] = {}
+        for e in self._since(60):
+            eid = e["data"].get("entity") or ""
+            if not eid:
+                continue
+            ent = ents.async_get(eid)
+            area_id = (ent.area_id if ent else None) or (devs.async_get(ent.device_id).area_id if ent and ent.device_id and devs.async_get(ent.device_id) else None)
+            area = areas.async_get_area(area_id) if area_id else None
+            if area:
+                key, name = "area_" + area.id, area.name
+            else:
+                st = self.hass.states.get(eid)
+                name = (st.attributes.get("friendly_name") if st else None) or eid.split(".", 1)[-1].replace("_", " ").title()
+                name = re.sub(r"^(MA|Music Assistant)\s+", "", name).strip() or name
+                key = eid
+            r = rooms.setdefault(key, {"name": name, "entries": []})
+            r["entries"].append(e)
+        out: list[dict] = []
+        for i, (key, r) in enumerate(sorted(rooms.items(), key=lambda kv: -len(kv[1]["entries"]))[:MAX_ROOMS]):
+            cands = self._varied(self._rank(r["entries"]))
+            mid = "room_" + re.sub(r"[^a-z0-9_]+", "_", key.lower())
+            mix = await self._finish(mid, "rooms", f"{r['name']} Mix", f"The songs played most in the {r['name']} lately.",
+                                     ROOM_COLORS[i % len(ROOM_COLORS)], cands, entry_id, order=i, room=r["name"])
+            if mix:
+                out.append(mix)
+        return out
+
+    # Time of Day: morning (5am to noon), afternoon (noon to 5pm) and evening (5pm on)
+    async def _make_timeofday(self, entry_id: str) -> list[dict]:
+        by: dict[str, list] = {p: [] for p in PERIODS}
+        for e in self._since(60):
+            by[_period(self._local(e).hour)].append(e)
+        out: list[dict] = []
+        for i, (p, (title, about, colors)) in enumerate(PERIODS.items()):
+            mix = await self._finish("tod_" + p, "timeofday", title, about, colors, self._varied(self._rank(by[p])),
+                                     entry_id, order=i, period=p)
+            if mix:
+                out.append(mix)
+        return out
+
+    # Weekend Mix: what's played on Saturdays and Sundays, the songs played mostly at weekends first
+    async def _make_weekend(self, entry_id: str) -> dict | None:
+        entries = self._since(60)
+        wk = [e for e in entries if self._local(e).weekday() >= 5]
+        total = {f"{_norm(c['artist'])}|{_norm(c['title'])}": c["n"] for c in self._rank(entries)}
+        ranked = self._rank(wk)
+        ranked.sort(key=lambda c: -(c["n"] * c["n"] / max(1, total.get(f"{_norm(c['artist'])}|{_norm(c['title'])}", 1))))
+        spec = KINDS["weekend"]
+        return await self._finish("weekend", "weekend", spec["title"], spec["about"], spec["colors"], self._varied(ranked), entry_id)
+
+    # Fresh Finds: songs first played in the last 30 days (once there's enough history to tell what's new)
+    async def _make_fresh(self, entry_id: str) -> dict | None:
+        entries = self._entries()
+        now = int(time.time() * 1000)
+        if not entries or min(e["ts"] for e in entries) > now - 40 * 86_400_000:
+            _LOGGER.debug("Fresh Finds: not enough history yet to tell what's new")
+            return None
+        first: dict[str, int] = {}
+        for e in entries:
+            k = f"{_norm(e['data'].get('artist'))}|{_norm(e['data'].get('title'))}"
+            first[k] = min(first.get(k, e["ts"]), e["ts"])
+        new = [e for e in entries if first[f"{_norm(e['data'].get('artist'))}|{_norm(e['data'].get('title'))}"] >= now - 30 * 86_400_000]
+        spec = KINDS["fresh"]
+        return await self._finish("fresh", "fresh", spec["title"], spec["about"], spec["colors"], self._rank(new), entry_id)
+
+    # Artist Spotlight: the month's most played artist, the songs the house plays and some it hasn't heard yet
+    async def _make_spotlight(self, entry_id: str) -> dict | None:
+        recent = self._since(30)
+        counts: dict[str, int] = {}
+        names: dict[str, str] = {}
+        for e in recent:
+            a = _main_artist(e["data"].get("artist"))
+            if _norm(a):
+                counts[_norm(a)] = counts.get(_norm(a), 0) + 1
+                names.setdefault(_norm(a), a)
+        if not counts:
+            return None
+        key = max(counts, key=lambda k: counts[k])
+        artist = names[key]
+        played = [c for c in self._rank(self._since(90)) if _norm(_main_artist(c["artist"])) == key]
+        known = (await self._resolve(played[:20], entry_id))[:20]
+        have = {_norm(t["title"]) for t in known}
+        more: list[dict] = []
+        try:
+            resp = await self.hass.services.async_call("music_assistant", "search", {
+                "config_entry_id": entry_id, "name": artist, "media_type": ["track"], "limit": 50},
+                blocking=True, return_response=True)
+            for t in (resp or {}).get("tracks") or []:
+                arts = [_norm(a.get("name")) for a in t.get("artists") or []]
+                title = _norm(t.get("name"))
+                if key in arts and title and title not in have and t.get("uri"):
+                    have.add(title)
+                    more.append({"uri": t["uri"], "title": t.get("name") or "", "album": (t.get("album") or {}).get("name") or "",
+                                 "artist": ", ".join(a.get("name") for a in t.get("artists") or [] if a.get("name")) or artist,
+                                 "image": t.get("image") or ""})
+        except Exception as err:  # noqa: BLE001 - the songs already played still make the mix
+            _LOGGER.debug("Artist Spotlight: Music Assistant search for %s failed: %s", artist, err)
+        random.shuffle(more)
+        tracks = known[:15] + more[: MAX_TRACKS - min(15, len(known))]
+        tracks = tracks[:MAX_TRACKS]
+        if len(tracks) < MIN_TRACKS:
+            return None
+        random.shuffle(tracks)
+        spec = KINDS["spotlight"]
+        return {"id": "spotlight", "kind": "spotlight", "title": f"{artist} Spotlight",
+                "about": f"The house's most played artist this month: the {artist} songs you play, and some you haven't heard yet.",
+                "colors": spec["colors"], "made": int(time.time() * 1000), "tracks": tracks, "artist": artist}
 
     async def _make_one(self, kind: str, entry_id: str) -> dict | None:
         spec = KINDS[kind]
@@ -308,8 +586,12 @@ class Mixes:
 
     # ── for the cards and automations ───────────────────────────────────────
     def view(self) -> dict:
-        order = {k: i for i, k in enumerate(KINDS)}
-        mixes = sorted(self.m.house["mixes"].values(), key=lambda x: order.get(x.get("kind"), 99))
+        order = {k: i for i, k in enumerate(DEFAULT_KINDS + [k for k in KINDS if k not in DEFAULT_KINDS])}
+        # On Repeat first, then the Daily Mixes, then the mix for this time of day; the rest in their usual order
+        order.update({"repeat": -3, "daily": -2, "timeofday": -1})
+        now = _period(dt_util.now().hour)
+        mixes = sorted(self.m.house["mixes"].values(), key=lambda x: (
+            order.get(x.get("kind"), 99), 0 if x.get("period") == now else 1, x.get("order", 0)))
         return {"mixes": [m for m in mixes if m.get("kind") in self.kinds()], "making": self.busy, "enabled": self.enabled,
                 "ma": bool(self.ma_entry_id())}
 

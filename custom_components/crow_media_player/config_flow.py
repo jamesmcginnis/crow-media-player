@@ -8,7 +8,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import DOMAIN, NAME
-from .mixes import DAYS, DEFAULT_KINDS, KINDS
+from .mixes import DAYS, DEFAULT_KINDS, KINDS, OLD_KINDS
 
 OPT_SPEAKERS = "speakers"
 OPT_TMDB = "tmdb_key"
@@ -44,9 +44,21 @@ class CrowMediaPlayerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class CrowMediaPlayerOptionsFlow(config_entries.OptionsFlow):
     """The household's choices: which speakers are recorded, keys for outside services, notifications."""
 
+    @staticmethod
+    def _mix_kinds(o) -> list[str]:
+        """The mixes made now: those chosen, plus any added since Configure was last saved."""
+        k = o.get(OPT_MIX_KINDS)
+        if not isinstance(k, list):
+            return list(DEFAULT_KINDS)
+        seen = o.get("mix_kinds_seen") if isinstance(o.get("mix_kinds_seen"), list) else OLD_KINDS
+        return [x for x in KINDS if x in k or (x in DEFAULT_KINDS and x not in seen)]
+
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(data={k: v for k, v in user_input.items() if v not in (None, "")})
+            data = {k: v for k, v in user_input.items() if v not in (None, "")}
+            # every mix there is now has been offered: one added in a later version is switched on for them then
+            data["mix_kinds_seen"] = list(KINDS)
+            return self.async_create_entry(data=data)
         o = self.config_entry.options
         notify_services = sorted(f"notify.{s}" for s in self.hass.services.async_services().get("notify", {})
                                  if s not in ("send_message", "persistent_notification"))
@@ -62,7 +74,7 @@ class CrowMediaPlayerOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(OPT_NOTIFY_PODCASTS, default=o.get(OPT_NOTIFY_PODCASTS, False)): selector.BooleanSelector(),
             vol.Optional(OPT_NOTIFY_RELEASES, default=o.get(OPT_NOTIFY_RELEASES, False)): selector.BooleanSelector(),
             vol.Optional(OPT_MIXES, default=o.get(OPT_MIXES, True)): selector.BooleanSelector(),
-            vol.Optional(OPT_MIX_KINDS, default=o.get(OPT_MIX_KINDS, DEFAULT_KINDS)): selector.SelectSelector(selector.SelectSelectorConfig(
+            vol.Optional(OPT_MIX_KINDS, default=self._mix_kinds(o)): selector.SelectSelector(selector.SelectSelectorConfig(
                 options=list(KINDS), multiple=True, translation_key="mix_kinds")),
             vol.Optional(OPT_MIX_DAY, default=o.get(OPT_MIX_DAY, "mon")): selector.SelectSelector(selector.SelectSelectorConfig(
                 options=DAYS, translation_key="mix_day", mode=selector.SelectSelectorMode.DROPDOWN)),

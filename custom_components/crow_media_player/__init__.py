@@ -28,6 +28,7 @@ from .discover import Discover
 from .fetch import FetchView
 from .manager import CrowMedia
 from .mixes import Mixes
+from .screentime import ScreenTime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     m.discover.start()
     m.mixes = Mixes(hass, m)
     m.mixes.start()
+    # Play Time: how long each Apple TV, HomePod and AirPlay speaker plays
+    m.screen = ScreenTime(hass)
+    await m.screen.async_start()
     _register_services(hass)
     _remove_retired_entities(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -118,6 +122,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if m:
         m.discover.stop()
         m.mixes.stop()
+        if getattr(m, "screen", None):
+            await m.screen.async_stop()
         await m.async_stop()
     for svc in ("start_sleep_timer", "cancel_sleep_timer", "set_alarm", "delete_alarm", "play_station", "play_pinned",
                 "play_mood", "forget_history", "check_new", "play_mix", "make_mixes", "pause_everywhere", "resume"):

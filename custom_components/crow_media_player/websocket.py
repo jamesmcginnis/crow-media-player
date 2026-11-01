@@ -11,6 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 
 from . import ai
 from .const import DOMAIN
+from .favourites import TYPES as FAV_TYPES, NoMusicAssistant, async_favourite
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ def _errors(fn):
 def async_register(hass: HomeAssistant) -> None:
     for cmd in (ws_info, ws_subscribe, ws_data_get, ws_data_set, ws_log, ws_log_forget, ws_register, ws_sleep_set,
                 ws_sleep_cancel, ws_alarm_save, ws_alarm_delete, ws_alarm_test, ws_ai, ws_ai_forget, ws_discover,
-                ws_mixes, ws_mixes_make, ws_mixes_play, ws_resume):
+                ws_mixes, ws_mixes_make, ws_mixes_play, ws_resume, ws_screen_time, ws_favourite):
         websocket_api.async_register_command(hass, cmd)
 
 
@@ -46,7 +47,7 @@ def async_register(hass: HomeAssistant) -> None:
 async def ws_info(hass, connection, msg) -> None:
     m = _m(hass)
     connection.send_result(msg["id"], {"version": hass.data.get(f"{DOMAIN}_version"), "modules": hass.data.get(f"{DOMAIN}_modules", {}),
-                                       "is_admin": connection.user.is_admin, **m.state_view()})
+                                       "is_admin": connection.user.is_admin, "favourites": True, **m.state_view()})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
@@ -128,19 +129,21 @@ async def ws_alarm_save(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {"alarm": _m(hass).alarm_save(msg["alarm"]), "alarms": _m(hass).alarms_view()})
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/alarm/delete", vol.Required("id"): str})
+# "id" is Home Assistant's own message number on every websocket message, so a mix or alarm is named
+# by mix_id / alarm_id (sent as "id" it was overwritten by the message number: "expected str at 'id'")
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/alarm/delete", vol.Required("alarm_id"): str})
 @websocket_api.async_response
 async def ws_alarm_delete(hass, connection, msg) -> None:
-    _m(hass).alarm_delete(msg["id"])
+    _m(hass).alarm_delete(msg["alarm_id"])
     connection.send_result(msg["id"], {"alarms": _m(hass).alarms_view()})
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/alarm/test", vol.Required("id"): str})
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/alarm/test", vol.Required("alarm_id"): str})
 @websocket_api.async_response
 @_errors
 async def ws_alarm_test(hass, connection, msg) -> None:
     m = _m(hass)
-    a = next((x for x in m.house["alarms"] if x["id"] == msg["id"]), None)
+    a = next((x for x in m.house["alarms"] if x["id"] == msg["alarm_id"]), None)
     if not a:
         raise ValueError("That alarm has gone")
     hass.async_create_task(m.async_ring(a))
@@ -197,13 +200,13 @@ async def ws_mixes_make(hass, connection, msg) -> None:
     connection.send_result(msg["id"], {})
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/mixes/play", vol.Required("id"): str, vol.Required("entity_id"): str,
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/mixes/play", vol.Required("mix_id"): str, vol.Required("entity_id"): str,
                                   vol.Optional("mode", default="replace"): vol.In(["replace", "next", "add"]),
                                   vol.Optional("shuffle", default=False): bool, vol.Optional("start", default=0): vol.Coerce(int)})
 @websocket_api.async_response
 async def ws_mixes_play(hass, connection, msg) -> None:
     m = _m(hass)
-    mix = m.house["mixes"].get(msg["id"])
+    mix = m.house["mixes"].get(msg["mix_id"])
     if not mix:
         connection.send_error(msg["id"], "not_found", "That mix has gone")
         return
@@ -228,5 +231,40 @@ async def ws_resume(hass, connection, msg) -> None:
         return
     except Exception as err:  # noqa: BLE001 - the speaker's own message
         connection.send_error(msg["id"], "resume_failed", str(err) or "The speaker couldn't carry on")
+        return
+    connection.send_result(msg["id"], out)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/screen_time",
+                                  vol.Optional("days", default=7): vol.All(vol.Coerce(int), vol.Range(min=1, max=400))})
+@websocket_api.async_response
+async def ws_screen_time(hass, connection, msg) -> None:
+    """How long each Apple TV has been in use, day by day (see screentime.py)."""
+    screen = getattr(_m(hass), "screen", None)
+    if not screen:
+        raise websocket_api.HomeAssistantError("Play Time isn't running")
+    connection.send_result(msg["id"], screen.view(msg["days"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/favourite", vol.Optional("uri"): str,
+                                  vol.Optional("artist"): str, vol.Optional("title"): str, vol.Optional("album"): str,
+                                  vol.Optional("media_type", default="track"): vol.In(list(FAV_TYPES)),
+                                  vol.Optional("favourite"): vol.Any(bool, None)})
+@websocket_api.async_response
+async def ws_favourite(hass, connection, msg) -> None:
+    """Add to Music Assistant's favourites, take off them, or ask (no "favourite")."""
+    try:
+        out = await async_favourite(hass, _m(hass), uri=msg.get("uri"), artist=msg.get("artist"), title=msg.get("title"),
+                                    media_type=msg["media_type"], favourite=msg.get("favourite"),
+                                    album=msg.get("album"))
+    except NoMusicAssistant as err:
+        connection.send_error(msg["id"], "no_music_assistant", str(err))
+        return
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    except Exception as err:  # noqa: BLE001 - Music Assistant's own message
+        _LOGGER.debug("Favourite failed: %s", err, exc_info=True)
+        connection.send_error(msg["id"], "favourite_failed", str(err) or "Music Assistant couldn't change the favourites")
         return
     connection.send_result(msg["id"], out)

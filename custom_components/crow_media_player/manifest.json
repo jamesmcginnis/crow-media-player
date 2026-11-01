@@ -2,12 +2,13 @@
   "domain": "crow_media_player",
   "name": "Crow Media Player",
   "after_dependencies": [
-    "conversation",
     "ai_task",
+    "conversation",
     "lovelace",
     "media_player",
     "mobile_app",
-    "notify"
+    "notify",
+    "recorder"
   ],
   "codeowners": [
     "@jamesmcginnis"
@@ -23,5 +24,5 @@
   "issue_tracker": "https://github.com/jamesmcginnis/crow-media-player/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "0.0.5"
+  "version": "0.0.6"
 }

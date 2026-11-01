@@ -188,6 +188,13 @@ make_mixes:
             - workout
             - evening
             - drive
+            - daily
+            - rooms
+            - timeofday
+            - weekend
+            - fresh
+            - spotlight
+          translation_key: mix_kinds
 pause_everywhere:
   fields:
     except:
