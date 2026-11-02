@@ -36,8 +36,8 @@
           "notify_podcasts": "A notification when a podcast someone has pinned has a new episode.",
           "notify_releases": "A notification when an artist the house plays a lot has a new album or single.",
           "mixes": "Playlists made from what the house listens to, in the card's Library under Made for You. They need Music Assistant.",
-          "mix_kinds": "On Repeat, Your Month in Music and Forgotten Favourites come from the listening history. The others are chosen by AI.",
-          "mix_day": "The day the mixes are made again. Your Month in Music is made on the 1st of each month.",
+          "mix_kinds": "On Repeat, Your Month in Music, Forgotten Favourites, the Daily Mixes, Room mixes, Time of Day, Weekend Mix, Fresh Finds and Artist Spotlight come from the listening history. Discover Weekly and the mood mixes are chosen by AI.",
+          "mix_day": "The day the mixes are made again. Your Month in Music is made on the 1st of each month, and the Daily Mixes and Time of Day mixes every morning.",
           "mix_agent": "Optional. The conversation agent that chooses Discover Weekly and the mood mixes. Otherwise Home Assistant's AI Task is used.",
           "notify_mixes": "A notification when new mixes are ready."
         }
@@ -338,7 +338,13 @@
         "dinner": "Dinner Party",
         "workout": "Workout",
         "evening": "Chill Evening",
-        "drive": "Road Trip"
+        "drive": "Road Trip",
+        "daily": "Daily Mixes 1-3",
+        "rooms": "Room mixes",
+        "timeofday": "Time of Day (morning, afternoon, evening)",
+        "weekend": "Weekend Mix",
+        "fresh": "Fresh Finds",
+        "spotlight": "Artist Spotlight"
       }
     },
     "mix_day": {
