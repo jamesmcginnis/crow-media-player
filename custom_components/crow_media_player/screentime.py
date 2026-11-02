@@ -25,6 +25,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .playtime_art import PlayTimeArt
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +33,10 @@ STORE = f"{DOMAIN}.screen_time"
 # 2: each device's apps and categories, and each title's devices, are kept too.
 # 3: everything the Apple TV integration adds counts again (version 2 tried to leave speakers out by their model,
 #    which Home Assistant doesn't reliably give). The days are worked out again from Home Assistant's history.
-VERSION = 3
+# 4: something AirPlaying to a device is counted as AirPlay (its "app" is the sender's name, such as a speaker or
+#    a phone, not an app), and each app's App Store id is kept, so the card shows the right icon.
+# 5: each title keeps its artist (songs) and whether it's a film or a show, so the card can find its artwork
+VERSION = 5
 REBUILD_DAYS = 30
 KEEP_DAYS = 400
 TITLES_PER_DAY = 150
@@ -74,7 +78,9 @@ class ScreenTime:
         self.stopped: dict[str, float] = {}  # entity -> when it last stopped playing
         self._unsubs: list = []
         self._atv: set[str] = set()
+        self._ma: set[str] = set()
         self._atv_at = 0.0
+        self.art = PlayTimeArt(hass)   # the pictures of what played, kept for Play Time
 
     # ── which players count: everything Home Assistant's Apple TV integration adds ──
     def apple_tvs(self) -> set[str]:
@@ -82,6 +88,10 @@ class ScreenTime:
             reg = er.async_get(self.hass)
             self._atv = {e.entity_id for e in reg.entities.values()
                          if e.domain == "media_player" and e.platform == "apple_tv" and not e.disabled_by}
+            # Music Assistant's players too, for the artwork only (it often has the picture when the Apple TV or
+            # HomePod it's AirPlaying to doesn't, a radio station's logo say)
+            self._ma = {e.entity_id for e in reg.entities.values()
+                        if e.domain == "media_player" and e.platform == "music_assistant" and not e.disabled_by}
             self._atv_at = time.monotonic()
         return self._atv
 
@@ -100,6 +110,11 @@ class ScreenTime:
             st = self.hass.states.get(eid)
             if st and st.state in PLAYING:
                 self._begin(eid, dict(st.attributes), now, new_use=False)
+                self.art.seen(eid, st.state, st.attributes)
+        for eid in self._ma:
+            st = self.hass.states.get(eid)
+            if st and st.state in PLAYING:
+                self.art.seen(eid, st.state, st.attributes, ma=True)
         if not self.data.get("backfilled"):
             # once Home Assistant's history is ready to read
             async_call_later(self.hass, 90, callback(lambda _n: self.hass.async_create_task(self._backfill())))
@@ -108,6 +123,7 @@ class ScreenTime:
         for u in self._unsubs:
             u()
         self._unsubs.clear()
+        self.art.stop()
         now = time.time()
         for eid in list(self.open):
             self._end(eid, now)
@@ -120,9 +136,14 @@ class ScreenTime:
     @callback
     def _on_state(self, event: Event) -> None:
         eid = event.data.get("entity_id") or ""
-        if not eid.startswith("media_player.") or eid not in self.apple_tvs():
+        if not eid.startswith("media_player."):
             return
+        atv = self.apple_tvs()
         new: State | None = event.data.get("new_state")
+        if new and (eid in atv or eid in self._ma):
+            self.art.seen(eid, new.state, new.attributes, ma=eid in self._ma)
+        if eid not in atv:
+            return
         self._apply(eid, new.state if new else "off", dict(new.attributes) if new else {}, time.time())
 
     def _apply(self, eid: str, state: str, attrs: dict, ts: float) -> None:
@@ -144,7 +165,17 @@ class ScreenTime:
     @staticmethod
     def _what(attrs: dict) -> dict:
         title = str(attrs.get("media_series_title") or attrs.get("media_title") or "").strip()
-        return {"cat": category(attrs), "app": str(attrs.get("app_name") or "").strip(), "title": title[:120]}
+        app = str(attrs.get("app_name") or "").strip()
+        app_id = str(attrs.get("app_id") or "").strip()
+        # no app id: something AirPlaying to the device (the "app" is the sender: Music Assistant's speaker
+        # name, a phone, AirMusic...), so it's AirPlay, not an app
+        if app and (not app_id or "airplay" in app_id.lower()):
+            app, app_id = "AirPlay", ""
+        artist = str(attrs.get("media_artist") or "").strip()[:120]
+        kind = "tv" if (attrs.get("media_series_title") or attrs.get("media_season") is not None
+                        or str(attrs.get("media_content_type") or "").lower() in ("tvshow", "episode", "season")) else \
+            "movie" if str(attrs.get("media_content_type") or "").lower() == "movie" else ""
+        return {"cat": category(attrs), "app": app, "app_id": app_id, "title": title[:120], "artist": artist, "kind": kind}
 
     def _begin(self, eid: str, attrs: dict, ts: float, new_use: bool) -> None:
         self.open[eid] = {**self._what(attrs), "since": ts}
@@ -172,7 +203,7 @@ class ScreenTime:
     # ── adding up ──
     @staticmethod
     def _blank() -> dict:
-        return {"t": 0, "c": {}, "a": {}, "r": {}, "h": {}, "ti": {}, "n": 0, "ra": {}, "rc": {}}
+        return {"t": 0, "c": {}, "a": {}, "r": {}, "h": {}, "ti": {}, "n": 0, "ra": {}, "rc": {}, "ai": {}}
 
     def _dayrec(self, day: str) -> dict:
         return self.data["days"].setdefault(day, self._blank())
@@ -191,6 +222,8 @@ class ScreenTime:
             day = local.strftime("%Y-%m-%d")
             d = days.setdefault(day, self._blank())
             cat, app = cur["cat"], cur["app"] or ""
+            if app and cur.get("app_id"):
+                d.setdefault("ai", {})[app] = cur["app_id"]
             # each Apple TV's apps and categories
             ra = d.setdefault("ra", {}).setdefault(eid, {})
             if app:
@@ -207,6 +240,10 @@ class ScreenTime:
             if cur.get("title"):
                 k = (app + "|" + cur["title"]).lower()
                 ti = d["ti"].setdefault(k, {"n": cur["title"], "a": app, "c": cat, "t": 0})
+                if cur.get("artist") and not ti.get("ar") and cat in ("music", "audio"):
+                    ti["ar"] = cur["artist"]
+                if cur.get("kind") and not ti.get("k"):
+                    ti["k"] = cur["kind"]
                 ti["t"] = round(ti["t"] + sec, 1)
                 tr = ti.setdefault("r", {})
                 tr[eid] = round(tr.get(eid, 0) + sec, 1)
@@ -325,6 +362,8 @@ def _merge(into: dict, add: dict) -> None:
                         into["ti"][tk] = tv
             else:
                 _merge(into.setdefault(k, {}), v)
+        elif k not in into:
+            into[k] = v   # text (an app's id, a title's name)
 
 
 def _copy(d: Any) -> Any:

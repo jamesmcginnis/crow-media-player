@@ -68,7 +68,45 @@ async def _async_register_card(hass: HomeAssistant) -> None:
     add_extra_js_url(hass, url, es5=True)
     hass.data[f"{DOMAIN}_version"] = str(integration.version)
     hass.data[f"{DOMAIN}_modules"] = {mod: f"/{DOMAIN}/{name}?v={integration.version}-{mods[mod]}" for mod, name in LAZY_FILES.items()}
+    hass.data[f"{DOMAIN}_modules_seen"] = await hass.async_add_executor_job(_module_stamps, www)
     hass.data[f"{DOMAIN}_card_registered"] = True
+
+
+def _module_stamps(www: Path) -> dict[str, tuple[float, int]]:
+    out = {}
+    for mod, name in LAZY_FILES.items():
+        try:
+            st = (www / name).stat()
+            out[mod] = (st.st_mtime, st.st_size)
+        except OSError:
+            out[mod] = (0, 0)
+    return out
+
+
+async def async_module_urls(hass: HomeAssistant) -> dict[str, str]:
+    """The card's parts, each at an address that changes with the file. A part replaced since Home Assistant started
+    (the card updated without a restart) gets a new address, so phones load the new one rather than one they kept."""
+    urls = hass.data.get(f"{DOMAIN}_modules") or {}
+    seen = hass.data.get(f"{DOMAIN}_modules_seen")
+    if not urls or seen is None:
+        return urls
+    www = Path(__file__).parent / "www"
+    now = await hass.async_add_executor_job(_module_stamps, www)
+    changed = [mod for mod in LAZY_FILES if now.get(mod) != seen.get(mod)]
+    if not changed:
+        return urls
+
+    def _digest(name: str) -> str:
+        try:
+            return hashlib.sha1((www / name).read_bytes()).hexdigest()[:10]
+        except OSError:
+            return "0"
+
+    version = hass.data.get(f"{DOMAIN}_version") or "0"
+    for mod in changed:
+        urls[mod] = f"/{DOMAIN}/{LAZY_FILES[mod]}?v={version}-" + await hass.async_add_executor_job(_digest, LAZY_FILES[mod])
+    hass.data[f"{DOMAIN}_modules_seen"] = now
+    return urls
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

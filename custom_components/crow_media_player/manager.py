@@ -53,6 +53,12 @@ CODEC_NAMES = {"alac": "ALAC", "flac": "FLAC", "wav": "WAV", "wave": "WAV", "aif
 ANNOUNCE_RE = re.compile(r"\b(announcement|alert|doorbell|tts|text to speech)\b", re.I)
 
 
+def _song_key(artist: Any, title: Any) -> str:
+    """A song's identity for spotting the same play twice (case, punctuation and "(Remastered)" ignored)."""
+    n = lambda v: re.sub(r"[^a-z0-9]+", "", re.sub(r"\s*[\(\[][^\)\]]*[\)\]]", "", str(v or "").lower()))  # noqa: E731
+    return n(artist) + "|" + n(title)
+
+
 def now_ms() -> int:
     return int(time.time() * 1000)
 
@@ -307,10 +313,15 @@ class CrowMedia:
     def log_play(self, meta: dict, ts: int) -> str | None:
         """Add a play to the household's listening history, unless it's already there."""
         log = self.house["log"]
+        key_now = _song_key(meta["artist"], meta["title"])
         for e in log.values():
             d = e.get("data") or {}
+            gap = abs((e.get("ts") or 0) - ts)
             if d.get("artist") == meta["artist"] and d.get("title") == meta["title"] and (d.get("entity") or "") == meta.get("entity", "") \
-                    and abs((e.get("ts") or 0) - ts) <= LOG_DEDUP_MS:
+                    and gap <= LOG_DEDUP_MS:
+                return None
+            # the same song on another speaker at the same moment (a HomePod and its Music Assistant player, a group)
+            if gap <= 2 * 60_000 and _song_key(d.get("artist"), d.get("title")) == key_now:
                 return None
         key = f"h{ts}_{random.randrange(36 ** 4):04x}"
         data = {"artist": meta["artist"], "title": meta["title"], "album": meta.get("album") or "",

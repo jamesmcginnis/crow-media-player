@@ -87,6 +87,29 @@ async def _find_song(hass: HomeAssistant, entry_id: str, title: str, artist: str
     return same[0]["uri"] if len(same) == 1 else None
 
 
+async def _find_other(hass: HomeAssistant, entry_id: str, mtype: str, name: str, artist: str) -> str | None:
+    """An album, artist, playlist or station in Music Assistant, by its name (and, for an album, its artist)."""
+    data = {"config_entry_id": entry_id, "name": name, "media_type": [mtype], "limit": 15}
+    if mtype == "album" and artist:
+        data["artist"] = artist
+    try:
+        resp = await hass.services.async_call("music_assistant", "search", data, blocking=True, return_response=True)
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.debug("Music Assistant search for %s %s failed: %s", mtype, name, err)
+        return None
+    key = {"album": "albums", "artist": "artists", "playlist": "playlists", "radio": "radio"}.get(mtype, mtype + "s")
+    want, art = _norm(name), _norm(artist)
+    same = [x for x in (resp or {}).get(key) or [] if x.get("uri") and _norm(x.get("name")) == want]
+    if not same:
+        # a version of the name (a deluxe edition, say)
+        same = [x for x in (resp or {}).get(key) or [] if x.get("uri") and _norm(x.get("name")).startswith(want)]
+    if mtype == "album" and art:
+        for x in same:
+            if any(a and (a in art or art in a) for a in (_norm(y.get("name")) for y in x.get("artists") or [])):
+                return x["uri"]
+    return same[0]["uri"] if same else None
+
+
 async def async_favourite(hass: HomeAssistant, m: "CrowMedia", *, uri: str | None, artist: str | None,
                           title: str | None, media_type: str = "track", favourite: bool | None = None,
                           album: str | None = None) -> dict:
@@ -97,10 +120,18 @@ async def async_favourite(hass: HomeAssistant, m: "CrowMedia", *, uri: str | Non
         entry_id = m.mixes.ma_entry_id() if getattr(m, "mixes", None) else None
         if not (entry_id and title):
             raise ValueError("Couldn't find that song in Music Assistant")
-        found = await m.mixes._resolve([{"artist": artist, "title": title, "album": album or ""}], entry_id) if artist else []  # noqa: SLF001
-        uri = found[0]["uri"] if found else await _find_song(hass, entry_id, title, artist or "", album or "")
-        if not uri:
-            raise ValueError(f"“{title}” isn’t in Music Assistant or your streaming services, so it can’t be a favourite")
+        if media_type != "track":
+            # an album, artist, playlist or station: looked for as one (never as a song with that name)
+            uri = await _find_other(hass, entry_id, media_type, title, artist or "")
+            what = {"album": "That album", "artist": "That artist", "playlist": "That playlist", "radio": "That station",
+                    "podcast": "That podcast"}.get(media_type, "That")
+            if not uri:
+                raise ValueError(f"{what} (“{title}”) isn’t in Music Assistant or your streaming services, so it can’t be a favourite")
+        else:
+            found = await m.mixes._resolve([{"artist": artist, "title": title, "album": album or ""}], entry_id) if artist else []  # noqa: SLF001
+            uri = found[0]["uri"] if found else await _find_song(hass, entry_id, title, artist or "", album or "")
+            if not uri:
+                raise ValueError(f"“{title}” isn’t in Music Assistant or your streaming services, so it can’t be a favourite")
     lib_id, mtype, now = await _library(mass, uri)
     if favourite is None or favourite == now:
         return {"favourite": now, "uri": uri}

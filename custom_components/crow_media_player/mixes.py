@@ -592,6 +592,10 @@ class Mixes:
         now = _period(dt_util.now().hour)
         mixes = sorted(self.m.house["mixes"].values(), key=lambda x: (
             order.get(x.get("kind"), 99), 0 if x.get("period") == now else 1, x.get("order", 0)))
+        # only one Daily Mix: just "Daily Mix" (the numbers are for telling several apart)
+        daily = [x for x in mixes if x.get("kind") == "daily"]
+        if len(daily) == 1:
+            mixes = [{**x, "title": "Daily Mix"} if x.get("kind") == "daily" else x for x in mixes]
         return {"mixes": [m for m in mixes if m.get("kind") in self.kinds()], "making": self.busy, "enabled": self.enabled,
                 "ma": bool(self.ma_entry_id())}
 

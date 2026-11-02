@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant, callback
 from . import ai
 from .const import DOMAIN
 from .favourites import TYPES as FAV_TYPES, NoMusicAssistant, async_favourite
+from .playlists import async_save_playlist
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,16 +39,17 @@ def _errors(fn):
 def async_register(hass: HomeAssistant) -> None:
     for cmd in (ws_info, ws_subscribe, ws_data_get, ws_data_set, ws_log, ws_log_forget, ws_register, ws_sleep_set,
                 ws_sleep_cancel, ws_alarm_save, ws_alarm_delete, ws_alarm_test, ws_ai, ws_ai_forget, ws_discover,
-                ws_mixes, ws_mixes_make, ws_mixes_play, ws_resume, ws_screen_time, ws_favourite):
+                ws_mixes, ws_mixes_make, ws_mixes_play, ws_resume, ws_screen_time, ws_screen_time_art, ws_favourite, ws_playlist_save):
         websocket_api.async_register_command(hass, cmd)
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/info"})
 @websocket_api.async_response
 async def ws_info(hass, connection, msg) -> None:
+    from . import async_module_urls  # noqa: PLC0415 - the package imports this module
     m = _m(hass)
-    connection.send_result(msg["id"], {"version": hass.data.get(f"{DOMAIN}_version"), "modules": hass.data.get(f"{DOMAIN}_modules", {}),
-                                       "is_admin": connection.user.is_admin, "favourites": True, **m.state_view()})
+    connection.send_result(msg["id"], {"version": hass.data.get(f"{DOMAIN}_version"), "modules": await async_module_urls(hass),
+                                       "is_admin": connection.user.is_admin, "favourites": True, "playlists": True, "playtime_art": True, **m.state_view()})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
@@ -246,6 +248,17 @@ async def ws_screen_time(hass, connection, msg) -> None:
     connection.send_result(msg["id"], screen.view(msg["days"]))
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/screen_time_art",
+                                  vol.Required("keys"): vol.All([str], vol.Length(max=80))})
+@websocket_api.async_response
+async def ws_screen_time_art(hass, connection, msg) -> None:
+    """The pictures kept for Play Time's titles (see playtime_art.py), by title key."""
+    screen = getattr(_m(hass), "screen", None)
+    if not screen:
+        raise websocket_api.HomeAssistantError("Play Time isn't running")
+    connection.send_result(msg["id"], {"art": await screen.art.async_get(msg["keys"])})
+
+
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/favourite", vol.Optional("uri"): str,
                                   vol.Optional("artist"): str, vol.Optional("title"): str, vol.Optional("album"): str,
                                   vol.Optional("media_type", default="track"): vol.In(list(FAV_TYPES)),
@@ -266,5 +279,28 @@ async def ws_favourite(hass, connection, msg) -> None:
     except Exception as err:  # noqa: BLE001 - Music Assistant's own message
         _LOGGER.debug("Favourite failed: %s", err, exc_info=True)
         connection.send_error(msg["id"], "favourite_failed", str(err) or "Music Assistant couldn't change the favourites")
+        return
+    connection.send_result(msg["id"], out)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/playlist/save", vol.Required("name"): vol.All(str, vol.Length(min=1, max=200)),
+                                  vol.Optional("queue_id"): str, vol.Optional("uris"): [str],
+                                  vol.Optional("songs"): [{vol.Optional("title"): str, vol.Optional("artist"): str, vol.Optional("album"): str,
+                                                             vol.Optional("uri"): str}]})
+@websocket_api.async_response
+async def ws_playlist_save(hass, connection, msg) -> None:
+    """Save songs (a queue, uris, or songs by name) as a new Music Assistant playlist."""
+    try:
+        out = await async_save_playlist(hass, _m(hass), name=msg["name"].strip(), uris=msg.get("uris"),
+                                        songs=msg.get("songs"), queue_id=msg.get("queue_id"))
+    except NoMusicAssistant as err:
+        connection.send_error(msg["id"], "no_music_assistant", str(err))
+        return
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    except Exception as err:  # noqa: BLE001 - Music Assistant's own message
+        _LOGGER.debug("Saving a playlist failed: %s", err, exc_info=True)
+        connection.send_error(msg["id"], "playlist_failed", str(err) or "Music Assistant couldn't make the playlist")
         return
     connection.send_result(msg["id"], out)
