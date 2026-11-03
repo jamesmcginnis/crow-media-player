@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant, callback
 
 from . import ai
 from .const import DOMAIN
-from .favourites import TYPES as FAV_TYPES, NoMusicAssistant, async_favourite
+from .favourites import TYPES as FAV_TYPES, NoMusicAssistant, async_favourite, favourite_times
 from .playlists import async_save_playlist
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def _errors(fn):
 def async_register(hass: HomeAssistant) -> None:
     for cmd in (ws_info, ws_subscribe, ws_data_get, ws_data_set, ws_log, ws_log_forget, ws_register, ws_sleep_set,
                 ws_sleep_cancel, ws_alarm_save, ws_alarm_delete, ws_alarm_test, ws_ai, ws_ai_forget, ws_discover,
-                ws_mixes, ws_mixes_make, ws_mixes_play, ws_resume, ws_screen_time, ws_screen_time_art, ws_favourite, ws_playlist_save):
+                ws_mixes, ws_mixes_make, ws_mixes_play, ws_resume, ws_screen_time, ws_screen_time_art, ws_favourite, ws_favourite_times, ws_playlist_save):
         websocket_api.async_register_command(hass, cmd)
 
 
@@ -49,7 +49,7 @@ async def ws_info(hass, connection, msg) -> None:
     from . import async_module_urls  # noqa: PLC0415 - the package imports this module
     m = _m(hass)
     connection.send_result(msg["id"], {"version": hass.data.get(f"{DOMAIN}_version"), "modules": await async_module_urls(hass),
-                                       "is_admin": connection.user.is_admin, "favourites": True, "playlists": True, "playtime_art": True, **m.state_view()})
+                                       "is_admin": connection.user.is_admin, "favourites": True, "fav_times": True, "playlists": True, "playtime_art": True, **m.state_view()})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
@@ -257,6 +257,13 @@ async def ws_screen_time_art(hass, connection, msg) -> None:
     if not screen:
         raise websocket_api.HomeAssistantError("Play Time isn't running")
     connection.send_result(msg["id"], {"art": await screen.art.async_get(msg["keys"])})
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/favourite/times"})
+@callback
+def ws_favourite_times(hass, connection, msg) -> None:
+    """When each favourite was added from the card (address or name -> milliseconds), newest first in lists."""
+    connection.send_result(msg["id"], {"times": favourite_times(_m(hass))})
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/favourite", vol.Optional("uri"): str,

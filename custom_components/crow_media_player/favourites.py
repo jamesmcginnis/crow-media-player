@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntryState
@@ -137,7 +138,37 @@ async def async_favourite(hass: HomeAssistant, m: "CrowMedia", *, uri: str | Non
         return {"favourite": now, "uri": uri}
     if favourite:
         await mass.send_command("music/favorites/add_item", item=uri)
+        if lib_id is None:
+            try:
+                lib_id = (await _library(mass, uri))[0]
+            except Exception:  # noqa: BLE001 - only used to find it again in the library
+                lib_id = None
     elif lib_id is not None:
         await mass.send_command("music/favorites/remove_item", media_type=mtype or media_type, library_item_id=lib_id)
+    kind = mtype or media_type
+    _remember(m, kind, [uri, f"library://{kind}/{lib_id}" if lib_id is not None else None,
+                        f"n:{kind}|{_norm(artist)}|{_norm(title)}" if title else None], favourite)
     _LOGGER.debug("%s %s Music Assistant favourites", uri, "added to" if favourite else "removed from")
-    return {"favourite": favourite, "uri": uri}
+    return {"favourite": favourite, "uri": uri, "at": int(time.time() * 1000) if favourite else None}
+
+
+def _remember(m: "CrowMedia", kind: str, keys: list, on: bool) -> None:
+    """When each favourite was added from the card (Music Assistant doesn't keep it), so lists can put the newest
+    first. Kept by its address, its library address and its name; the newest 3000."""
+    times = m.house.setdefault("fav_times", {})
+    now = int(time.time() * 1000)
+    for k in keys:
+        if not k:
+            continue
+        if on:
+            times[k] = now
+        else:
+            times.pop(k, None)
+    if len(times) > 3000:
+        for k in sorted(times, key=times.get)[: len(times) - 3000]:
+            del times[k]
+    m.save_house()
+
+
+def favourite_times(m: "CrowMedia") -> dict:
+    return dict(m.house.get("fav_times") or {})

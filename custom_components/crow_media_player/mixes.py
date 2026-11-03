@@ -99,6 +99,34 @@ def _norm(s: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "", s)
 
 
+def _artist_names(a: Any) -> set[str]:
+    """Every name in a song's artist ("Aerosmith & YUNGBLUD", "Aerosmith, YUNGBLUD" and "Aerosmith/YUNGBLUD" all give
+    aerosmith and yungblud), and the whole of it (so AC/DC is still acdc)."""
+    whole = str(a or "")
+    parts = re.split(r"\s*(?:,|&|/| feat\.? | ft\.? | x | with | and )\s*", whole, flags=re.I)
+    return {n for n in (_norm(x) for x in [whole, *parts]) if n}
+
+
+def dedupe(tracks: list[dict]) -> list[dict]:
+    """Each song once (the first): the same address, or the same name (without a version in brackets, such as
+    "(2025 Mix)") by any of the same artists."""
+    uris: set[str] = set()
+    by_title: dict[str, list[set[str]]] = {}
+    out = []
+    for t in tracks or []:
+        uri, title, names = t.get("uri"), _norm(t.get("title")), _artist_names(t.get("artist"))
+        if uri and uri in uris:
+            continue
+        if title and any(names & other or not (names and other) for other in by_title.get(title, [])):
+            continue
+        if uri:
+            uris.add(uri)
+        if title:
+            by_title.setdefault(title, []).append(names)
+        out.append(t)
+    return out
+
+
 class Mixes:
     def __init__(self, hass: HomeAssistant, media: "CrowMedia") -> None:
         self.hass = hass
@@ -467,7 +495,7 @@ class Mixes:
         except Exception as err:  # noqa: BLE001 - the songs already played still make the mix
             _LOGGER.debug("Artist Spotlight: Music Assistant search for %s failed: %s", artist, err)
         random.shuffle(more)
-        tracks = known[:15] + more[: MAX_TRACKS - min(15, len(known))]
+        tracks = dedupe(known[:15] + more[: MAX_TRACKS - min(15, len(known))])
         tracks = tracks[:MAX_TRACKS]
         if len(tracks) < MIN_TRACKS:
             return None
@@ -577,12 +605,7 @@ class Mixes:
             for k in list(store)[: len(store) - 5000]:
                 del store[k]
         self.m.save_cache()
-        seen, out = set(), []
-        for r in results:
-            if r and r["uri"] not in seen:
-                seen.add(r["uri"])
-                out.append({k: r.get(k, "") for k in ("uri", "title", "artist", "album", "image")})
-        return out
+        return dedupe([{k: r.get(k, "") for k in ("uri", "title", "artist", "album", "image")} for r in results if r and r.get("uri")])
 
     # ── for the cards and automations ───────────────────────────────────────
     def view(self) -> dict:
@@ -596,6 +619,8 @@ class Mixes:
         daily = [x for x in mixes if x.get("kind") == "daily"]
         if len(daily) == 1:
             mixes = [{**x, "title": "Daily Mix"} if x.get("kind") == "daily" else x for x in mixes]
+        # mixes made before songs were de-duplicated: shown (and played, below) with each song once
+        mixes = [{**x, "tracks": dedupe(x.get("tracks"))} for x in mixes]
         return {"mixes": [m for m in mixes if m.get("kind") in self.kinds()], "making": self.busy, "enabled": self.enabled,
                 "ma": bool(self.ma_entry_id())}
 
@@ -612,7 +637,7 @@ class Mixes:
     async def async_play(self, entity_id: str, mix: dict, *, mode: str = "replace", shuffle: bool = False, start: int = 0) -> int:
         if not self.m._is_ma(entity_id):  # noqa: SLF001
             raise ValueError("Mixes play on Music Assistant speakers")
-        uris = [t["uri"] for t in mix.get("tracks") or [] if t.get("uri")]
+        uris = [t["uri"] for t in dedupe(mix.get("tracks")) if t.get("uri")]
         if not uris:
             raise ValueError("This mix is empty")
         if shuffle:
