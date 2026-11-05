@@ -1,8 +1,8 @@
-CROW MEDIA PLAYER – PROPRIETARY LICENCE
+CROW FOOD – PROPRIETARY LICENCE
 
 Copyright © 2026 James McGinnis. All rights reserved.
 
-Crow Media Player is proprietary software. All intellectual property rights remain with the copyright holder.
+Crow Food is proprietary software. All intellectual property rights remain with the copyright holder.
 
 1. Permission to use
 
@@ -20,7 +20,7 @@ Without prior written permission from the copyright holder, you may not:
 
 3. Ownership
 
-All rights, title and interest in Crow Media Player remain with the copyright holder.
+All rights, title and interest in Crow Food remain with the copyright holder.
 
 No ownership rights are transferred through this licence.
 
