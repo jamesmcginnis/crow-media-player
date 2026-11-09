@@ -6,6 +6,7 @@ Crow Media Player is a Home Assistant integration and dashboard card for your sp
 
 [![Marketplace](https://img.shields.io/badge/Marketplace-Custom-orange)](https://hacs.xyz/docs/marketplace/)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8+-blue)](https://www.home-assistant.io/)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/jamesmcginnis)
 
 **Step 1 — Add the repository to the Marketplace:**
 
@@ -903,3 +904,7 @@ The card is split into a main file and parts that load when they're first used (
 ## Support
 
 Report problems or ask for features at [GitHub Issues](https://github.com/jamesmcginnis/crow-media-player/issues). New versions are listed under [Releases](https://github.com/jamesmcginnis/crow-media-player/releases), and the Marketplace offers them as updates.
+
+If you enjoy Crow Media Player, you can support its development here:
+
+[![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/jamesmcginnis)

@@ -79,3 +79,9 @@ An iPhone-style media player card for Home Assistant, with the integration that 
 Music Assistant is optional, but needed for the library, queue, mixes and Play a Mood. AI features need a conversation agent such as Google Gemini, chosen in the card's editor.
 
 Full documentation, and where to report problems: [github.com/jamesmcginnis/crow-media-player](https://github.com/jamesmcginnis/crow-media-player)
+
+## Support
+
+If you enjoy Crow Media Player, you can support its development here:
+
+[![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/jamesmcginnis)
