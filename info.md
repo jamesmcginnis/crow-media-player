@@ -84,4 +84,4 @@ Full documentation, and where to report problems: [github.com/jamesmcginnis/crow
 
 If you enjoy Crow Media Player, you can support its development here:
 
-[![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://buymeacoffee.com/jamesmcginnis)
+<a href="https://buymeacoffee.com/jamesmcginnis"><img src="https://raw.githubusercontent.com/jamesmcginnis/crow-media-player/main/images/buy-me-a-coffee.png" alt="Buy Me a Coffee" height="34"></a>
