@@ -4,6 +4,10 @@ An iPhone-style media player card for Home Assistant, with the integration that 
 
 **One download installs both.** The card is bundled inside the integration and loaded into your dashboards automatically.
 
+If you enjoy Crow Media Player, you can support its development:
+
+<a href="https://buymeacoffee.com/jamesmcginnis"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20Me%20a%20Coffee&emoji=&slug=jamesmcginnis&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff" alt="Buy Me a Coffee" height="40"></a>
+
 ## What the integration adds
 
 - **Everyone's data in Home Assistant**: pins, starred stations, saved queues, lyrics and AI answers are kept for each person and follow them between devices
@@ -79,9 +83,3 @@ An iPhone-style media player card for Home Assistant, with the integration that 
 Music Assistant is optional, but needed for the library, queue, mixes and Play a Mood. AI features need a conversation agent such as Google Gemini, chosen in the card's editor.
 
 Full documentation, and where to report problems: [github.com/jamesmcginnis/crow-media-player](https://github.com/jamesmcginnis/crow-media-player)
-
-## Support
-
-If you enjoy Crow Media Player, you can support its development here:
-
-<a href="https://buymeacoffee.com/jamesmcginnis"><img src="https://raw.githubusercontent.com/jamesmcginnis/crow-media-player/main/images/buy-me-a-coffee.png" alt="Buy Me a Coffee" height="34"></a>
