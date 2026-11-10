@@ -111,11 +111,46 @@ async def _find_other(hass: HomeAssistant, entry_id: str, mtype: str, name: str,
     return same[0]["uri"] if same else None
 
 
+def _names(a: Any) -> set[str]:
+    """Every artist name in an artist line ("A & B", "A, B", "A/B" all give a and b), and the whole line."""
+    whole = str(a or "")
+    parts = re.split(r"\s*(?:,|&|/|;| feat\.? | ft\.? | x | with | and )\s*", whole, flags=re.I)
+    return {n for n in (_norm(x) for x in [whole, *parts]) if n}
+
+
+async def _favourite_by_name(mass: Any, title: str, artist: str) -> str | None:
+    """A song among Music Assistant's favourite songs with this name and one of these artists, however the song is
+    listed (the version playing may be a different copy of it from the one that was favourited: another album, a
+    single, another streaming service). Its address, or None."""
+    if not title:
+        return None
+    try:
+        items = await mass.send_command("music/tracks/library_items", favorite=True, search=title, limit=50)
+    except Exception as err:  # noqa: BLE001 - an older Music Assistant: not looked for this way
+        _LOGGER.debug("Couldn't search Music Assistant's favourites for %s: %s", title, err)
+        return None
+    want, art = _norm(title), _names(artist)
+    for it in items or []:
+        if _norm(_get(it, "name")) != want:
+            continue
+        names = set()
+        for a in _get(it, "artists") or []:
+            names |= _names(_get(a, "name"))
+        if not art or not names or art & names:
+            return _get(it, "uri")
+    return None
+
+
 async def async_favourite(hass: HomeAssistant, m: "CrowMedia", *, uri: str | None, artist: str | None,
                           title: str | None, media_type: str = "track", favourite: bool | None = None,
                           album: str | None = None) -> dict:
     """Add (favourite=True), take off (False) or just ask (None). Returns {"favourite", "uri"}."""
     mass = _mass(hass)
+    if favourite is None and media_type == "track" and title:
+        # just asking: a favourite by its name first (it's quick, and it finds the song however this copy is listed)
+        found = await _favourite_by_name(mass, title, artist or "")
+        if found:
+            return {"favourite": True, "uri": uri or found}
     if not uri:
         # a song known only by its name (an Apple TV or HomePod playing it, say): found in Music Assistant first
         entry_id = m.mixes.ma_entry_id() if getattr(m, "mixes", None) else None
@@ -133,6 +168,18 @@ async def async_favourite(hass: HomeAssistant, m: "CrowMedia", *, uri: str | Non
             uri = found[0]["uri"] if found else await _find_song(hass, entry_id, title, artist or "", album or "")
             if not uri:
                 raise ValueError(f"“{title}” isn’t in Music Assistant or your streaming services, so it can’t be a favourite")
+    if favourite is False and media_type == "track" and title:
+        # taking it off: the copy that was favourited too, when it's a different one from the copy playing
+        other = await _favourite_by_name(mass, title, artist or "")
+        if other and other != uri:
+            try:
+                o_id, o_type, o_on = await _library(mass, other)
+                if o_id is not None and o_on:
+                    await mass.send_command("music/favorites/remove_item", media_type=o_type or "track", library_item_id=o_id)
+                    _remember(m, o_type or "track", [other, f"library://{o_type or 'track'}/{o_id}",
+                                                      f"n:track|{_norm(artist)}|{_norm(title)}"], False)
+            except Exception as err:  # noqa: BLE001 - the copy playing is still taken off below
+                _LOGGER.debug("Couldn't take %s off Music Assistant's favourites: %s", other, err)
     lib_id, mtype, now = await _library(mass, uri)
     if favourite is None or favourite == now:
         return {"favourite": now, "uri": uri}

@@ -88,7 +88,15 @@ class PlayTimeArt:
             return
         if eid in self._timers:
             self._timers.pop(eid)()
-        self._timers[eid] = async_call_later(self.hass, WAIT, lambda _n, e=eid: self.hass.async_create_task(self._take(e)))
+        self._timers[eid] = async_call_later(self.hass, WAIT, self._due(eid))
+
+    def _due(self, eid: str):
+        """The timer's callback, run in Home Assistant's event loop (a plain lambda would be run in a worker thread,
+        where starting a task isn't allowed)."""
+        @callback
+        def _fire(_now: Any) -> None:
+            self.hass.async_create_task(self._take(eid), f"crow_media_player play time art {eid}")
+        return _fire
 
     async def _take(self, eid: str) -> None:
         self._timers.pop(eid, None)
