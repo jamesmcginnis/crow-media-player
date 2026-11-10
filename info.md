@@ -1,12 +1,12 @@
 # Crow Media Player
 
+If you enjoy Crow Media Player, you can support its development:
+
+[![Buy Me a Coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20Me%20a%20Coffee&emoji=&slug=jamesmcginnis&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/jamesmcginnis)
+
 An iPhone-style media player card for Home Assistant, with the integration that runs it: deep Music Assistant support, synced lyrics, AI track and film information, podcasts, radio and audiobooks, Listening Recaps, PDF exports, a screensaver, a visualiser and an Apple TV remote.
 
 **One download installs both.** The card is bundled inside the integration and loaded into your dashboards automatically.
-
-If you enjoy Crow Media Player, you can support its development:
-
-<a href="https://buymeacoffee.com/jamesmcginnis"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20Me%20a%20Coffee&emoji=&slug=jamesmcginnis&button_colour=FFDD00&font_colour=000000&font_family=Inter&outline_colour=000000&coffee_colour=ffffff" alt="Buy Me a Coffee" height="40"></a>
 
 ## What the integration adds
 
